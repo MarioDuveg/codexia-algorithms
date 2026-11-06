@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050506">
+  <meta name="description" content="ALGORITMOS / PSO. Cinco mini retos de optimización por enjambre para preparatoria.">
+  <title>ALGORITMOS // Particle Swarm Optimization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/public/styles.css">
+  <script src="/public/main.js" defer></script>
+  <script src="/public/scores.js" defer></script>
+</head>
+<body class="app-screen">
+  <div class="ambient-grid" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <header class="topbar">
+    <div class="brand" aria-label="Algoritmos Particle Swarm Optimization"><span class="brand-emblem" aria-hidden="true"><i></i></span><span class="brand-word">ALGO<span>R</span>ITMOS</span><span class="brand-divider" aria-hidden="true"></span><span class="brand-sub">PARTICLE SWARM OPTIMIZATION</span></div>
+    <div class="top-right"><button type="button" class="scores-nav-button" id="scoresOpenBtn" aria-haspopup="dialog" aria-controls="scoresOverlay" aria-expanded="false"><span class="scores-nav-dot" aria-hidden="true"></span> RANKING <span aria-hidden="true">↗</span></button><span class="connection"><i></i> SISTEMA EN LÍNEA</span><span class="round-marker">PROTOCOLO // 05 ETAPAS</span></div>
+  </header>
+
+  <main class="workspace" id="workspace" hidden>
+    <div class="mission-header">
+      <div><p class="micro"><span class="micro-bar"></span> ALGORITMOS // LABORATORIO PSO</p><h1>DOMINA EL <em>ENJAMBRE.</em></h1><p class="subhead">Cinco mini retos para aprender cómo las partículas encuentran mejores soluciones.</p></div>
+      <div class="timer-box"><span class="timer-label"><span class="pulse-dot"></span> TIEMPO DE MISIÓN // LIVE</span><div id="timer" class="timer" aria-live="off">00:00.00</div><span class="timer-meta" id="timerMeta">CRONÓMETRO ACTIVO</span><span class="timer-remaining" id="remainingTime">15:00 RESTANTES</span></div>
+    </div>
+
+    <div class="play-grid">
+      <aside class="sidebar">
+        <div class="sidebar-head"><div class="side-mini">IDENTIFICADOR // EQUIPO</div><div id="teamName" class="team-name">—</div><div class="team-active"><span class="pulse-dot"></span><span id="teamStatus">MISIÓN EN CURSO</span></div></div>
+        <div class="sidebar-section"><span>PROGRESO / PROTOCOLO</span><strong id="progressText">00 / 05</strong></div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div><div class="score-panel"><span>PUNTUACIÓN ACTUAL / 100</span><strong id="currentScore">01</strong><small id="syncStatus" aria-live="polite">Enlace con Supabase: taller_2.</small></div>
+        <nav class="level-list" id="levelList" aria-label="Retos de la misión"></nav>
+        <div class="sidebar-bottom"><span>◇</span><p><strong>INTEL // 001</strong><br>Una partícula recuerda su pBest. Todo el grupo aprende del gBest.</p></div>
+      </aside>
+
+      <section class="challenge-panel" aria-labelledby="challengePanelTitle">
+        <div class="challenge-toolbar"><div><span class="toolbar-kicker">ALGORITMOS / SIMULADOR DE ENJAMBRES</span><h2 id="challengePanelTitle">DESAFÍO ACTIVO</h2></div><div class="toolbar-right"><a id="openTab" href="#" target="_blank" rel="noopener">ABRIR EN PESTAÑA ↗</a><span class="toolbar-id" id="activeLevel">NIVEL 01 / 05</span></div></div>
+        <div class="iframe-wrap" id="iframeWrap"><iframe id="challengeFrame" title="Reto actual de Particle Swarm Optimization" referrerpolicy="same-origin"></iframe></div>
+        <div class="finish-card" id="finishCard" hidden>
+          <div class="finish-icon" id="finishIcon">✓</div><span class="finish-eyebrow" id="finishEyebrow">[ PROTOCOLO COMPLETADO // 05 / 05 ]</span><h2 id="finishTitle">ACCESO <span>CONCEDIDO.</span></h2><p id="finishDescription">Completa los cinco retos y compara tu puntuación en el ranking:</p><div id="finalTime" class="final-time">00:00.00</div><div class="result-score">CALIFICACIÓN: <strong id="finalScore">—</strong><span> / 100</span></div><div class="place" id="finalPlace">RESULTADO REGISTRADO</div>
+          <section class="weakness-panel" id="matrixPanel" aria-labelledby="weaknessTitle">
+            <span class="weakness-eyebrow">[ RESUMEN DE APRENDIZAJE // PSO ]</span>
+            <h3 id="weaknessTitle">CÓMO FUNCIONA <em>PSO.</em></h3>
+            <p>El enjambre mejora soluciones al combinar experiencia propia y colectiva.</p>
+            <ul class="weakness-grid" aria-label="Conceptos de optimización por enjambre">
+              <li><span class="weakness-color weakness-yellow">FUNCIÓN OBJETIVO</span><span class="weakness-arrow">→</span><span class="weakness-color weakness-green">MENOR COSTO</span></li>
+              <li><span class="weakness-color weakness-red">pBest</span><span class="weakness-arrow">→</span><span class="weakness-color weakness-blue">MEMORIA</span></li>
+              <li><span class="weakness-color weakness-green">gBest</span><span class="weakness-arrow">→</span><span class="weakness-color weakness-yellow">COOPERACIÓN</span></li>
+              <li><span class="weakness-color weakness-blue">ITERACIONES</span><span class="weakness-arrow">→</span><span class="weakness-color weakness-red">CONVERGENCIA</span></li>
+            </ul>
+          </section><p class="finish-foot" id="finishFoot">El mejor puntaje se envía a taller_2 en Supabase.</p><div class="finish-actions"><button class="button-outline" id="reviewBtn">REVISAR DESAFÍOS <span aria-hidden="true">›</span></button><button class="button-outline" id="retryBtn">REINTENTAR CON ESTE EQUIPO <span aria-hidden="true">↻</span></button><a class="button-outline" href="/resultados" target="_blank" rel="noopener">VER RESULTADOS ↗</a></div><p class="join-error" id="retryError" role="alert"></p>
+        </div>
+        <footer class="panel-footer"><span>CONCEPTOS // f(x) · pBest · gBest · VELOCIDAD · CONVERGENCIA</span><span>ALGORITMOS / PSO LAB</span></footer>
+      </section>
+    </div>
+  </main>
+
+<div class="scores-overlay" id="scoresOverlay" role="dialog" aria-modal="true" aria-labelledby="scoresDialogTitle" hidden>
+  <div class="scores-modal-shell">
+    <div class="scores-modal-top"><div><span class="scores-modal-kicker">ALGORITMOS / RANKING</span><h2 id="scoresDialogTitle">RANKING <span>POR RETO</span></h2></div><button type="button" id="scoresCloseBtn" class="scores-close" aria-label="Cerrar clasificación">CERRAR <span aria-hidden="true">✕</span></button></div>
+<section class="scores-content" id="scoresRoot" data-scores-root aria-label="Clasificación de equipos">
+  <div class="scores-intro">
+    <div>
+      <p class="micro"><span class="micro-bar"></span> ALGORITMOS // PARTICLE SWARM OPTIMIZATION</p>
+      <h2>SCORES <em>LIVE.</em></h2>
+      <p>Clasificación por puntuación (máximo 100). Desempates: menor tiempo y menos intentos. Datos del servidor del juego.</p>
+    </div>
+    <div class="scores-live-indicator"><span aria-hidden="true"></span> LEADERBOARD / EN VIVO</div>
+  </div>
+  <div class="scores-filter-wrap">
+    <p class="scores-section-label">SELECCIONA CLASIFICACIÓN</p>
+    <div class="scores-filters" id="scoresFilters" role="group" aria-label="Actividad del leaderboard"></div>
+  </div>
+  <div class="scores-current">
+    <div><span class="scores-section-label">CLASIFICACIÓN ACTUAL</span><h3 id="scoresActivityLabel">PUNTUACIÓN TOTAL</h3><p id="scoresActivityDesc">Cinco retos de 20 puntos. El tiempo resuelve empates.</p></div>
+    <div class="scores-mini-metrics"><div><strong id="scoresCount">—</strong><span>EQUIPOS CON PUNTOS</span></div><div><strong id="scoresHighest">—</strong><span>MEJOR PUNTAJE</span></div></div>
+  </div>
+  <div class="scores-podium" id="scoresPodium" aria-label="Primeros tres lugares"></div>
+  <div class="scores-table-wrap">
+    <table class="scores-ranking-table" aria-label="Clasificación por actividad">
+      <thead><tr><th scope="col">POS.</th><th scope="col">EQUIPO</th><th scope="col">PUNTAJE</th><th scope="col">TIEMPO</th><th scope="col">INTENTOS</th></tr></thead>
+      <tbody id="scoresRows"><tr><td colspan="5" class="scores-empty">Consultando resultados...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="scores-footer"><span id="scoresStatus" role="status" aria-live="polite">CARGANDO...</span><div><button type="button" id="scoresRefreshBtn" class="scores-refresh">↻ ACTUALIZAR</button><span>SE ACTUALIZA CADA 10 S</span></div></div>
+</section>  </div>
+</div>
+
+  <div class="join-overlay" id="joinOverlay">
+    <section class="welcome-card" aria-labelledby="welcomeTitle">
+      <div class="welcome-content">
+        <div class="welcome-top"><span class="sys-tag"><i class="pulse-dot"></i> SISTEMA LISTO</span><span>PARTICLE SWARM OPTIMIZATION // 2026</span></div>
+        <p class="micro hero-rule"><span class="micro-bar"></span> ALGORITMOS / PARTICLE SWARM OPTIMIZATION</p>
+        <h1 id="welcomeTitle">EXPLORA<br><em>EL ENJAMBRE.</em></h1>
+        <p class="welcome-copy">Descubre cómo un enjambre de partículas busca, recuerda y comparte mejores soluciones. Cinco desafíos, un equipo y 15 minutos.</p>
+        <div class="welcome-facts"><span><b>05</b><small>RETOS</small></span><span><b>15</b><small>MINUTOS MÁX.</small></span><span><b>100</b><small>PUNTOS MÁX.</small></span></div>
+        <form id="joinForm" autocomplete="off"><label for="joinTeamNumber">IDENTIFICADOR // SELECCIONA TU EQUIPO (1–20)</label><div class="team-selector"><button type="button" id="teamMinus" class="team-step" aria-label="Equipo anterior">−</button><input id="joinTeamNumber" name="teamNumber" type="number" inputmode="numeric" min="1" max="20" step="1" placeholder="—" aria-describedby="teamSelectStatus" autocomplete="off"><button type="button" id="teamPlus" class="team-step" aria-label="Equipo siguiente">+</button></div><p class="team-select-status" id="teamSelectStatus">NINGÚN EQUIPO SELECCIONADO</p><button class="button-primary" type="submit" id="startBtn" disabled><span>START // INICIAR RETOS</span><span>›</span></button><p id="joinError" class="join-error" role="alert"></p></form>
+        <div class="welcome-disclaimer">ADVERTENCIA // SIN EQUIPO NO SE PUEDE INICIAR. AL PRESIONAR START COMIENZAN 15 MINUTOS SIN PAUSA. CADA RETO: 20 / 15 / 10 / 0 PTS SEGÚN LOS INTENTOS. TIEMPO PARA DESEMPATE.</div>
+      </div>
+      <section class="welcome-video" aria-label="Visualización ilustrativa del enjambre">
+        <div class="art-top"><span>ALGORITMOS // PARTÍCULAS EN MOVIMIENTO</span><span>SIMULACIÓN ●</span></div>
+        <div class="swarm-intro">
+          <div class="swarm-intro-title">OPTIMIZACIÓN <span>COLECTIVA</span></div>
+          <div class="swarm-stage" aria-hidden="true">
+            <span class="swarm-target"><i>★</i><small>gBest</small></span>
+            <span class="swarm-particle p1"></span><span class="swarm-particle p2"></span>
+            <span class="swarm-particle p3"></span><span class="swarm-particle p4"></span>
+            <span class="swarm-particle p5"></span><span class="swarm-particle p6"></span>
+            <span class="swarm-particle p7"></span><span class="swarm-particle p8"></span>
+            <span class="swarm-ring"></span>
+          </div>
+          <div class="swarm-legend"><span><i class="legend-particle"></i> PARTÍCULAS</span><span><i class="legend-target"></i> MEJOR GLOBAL</span></div>
+          <div class="swarm-formula">v′ = inercia + memoria + cooperación</div>
+          <p>Cada partícula aprende de su mejor posición y del mejor resultado encontrado por el grupo.</p>
+        </div>
+        <div class="art-bottom"><span>5 MINI RETOS · 15 MIN · 100 PTS</span><strong>PSO <i>_</i></strong></div>
+        <div class="art-corner one" aria-hidden="true"></div><div class="art-corner two" aria-hidden="true"></div>
+      </section>
+    </section>
+  </div>
+</body>
+</html>
