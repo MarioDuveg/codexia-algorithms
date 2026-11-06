@@ -1,233 +1,272 @@
 'use strict';
-// Demostraciones didácticas reales de PSO (canvas, sin librerías externas).
-// Sus datos son independientes de las respuestas del concurso.
+// LABORATORIOS: cada movimiento envía una medición al servidor. La gráfica
+// representa los datos realmente explorados por el equipo y no una animación ornamental.
 (() => {
   const root = document.querySelector('[data-swarm-mode]');
   if (!root) return;
-  const mode = Number(root.dataset.swarmMode);
-  const canvas = document.getElementById('swarmCanvas');
-  const ctx = canvas?.getContext('2d');
-  if (!ctx) return;
-  const play = document.getElementById('swarmToggle');
-  const reset = document.getElementById('swarmReset');
-  const status = document.getElementById('swarmStatus');
-  const W = 760, H = 255, X0 = 60, X1 = 700;
-  const colors = ['#77e7cb', '#ff80ad', '#9ca5ff', '#ffd381', '#81c0fc', '#e69efa'];
-  const cap = (x,lo,hi) => Math.max(lo,Math.min(hi,x));
-  const lerp = (a,b,t) => a+(b-a)*t;
-  const fmt = x => Number(x).toFixed(1);
-  let seed, frame, lastTick = 0, iteration, running, particles, globalBest, target, prev, history;
-  const rand = () => {seed = (seed*1664525+1013904223) >>> 0; return seed/4294967296;};
-  const mapX = x => X0+(X1-X0)*(x/16);
-  const xy = p => ({x:58+p.x*637,y:28+p.y*184});
-  const cost1d = x => (x-target)*(x-target);
-  const cost2d = p => Math.pow(p.x-0.68,2)+Math.pow(p.y-0.43,2);
-  const cleanP = (x,y,v=0,name='') => ({x,y,v,name,px:x,py:y,prevX:x,prevY:y,trail:[{x,y}]});
-  const bestParticle = () => particles.reduce((a,b)=>cost1d(a.px)<cost1d(b.px)?a:b);
-  function setStatus(text) {status.textContent=text;}
-  function initialize(autoplay=true) {
-    seed=1009+mode*173;
-    iteration=0;history=[];lastTick=performance.now();
-    target= mode===1?7:mode===3?10:5;
-    if(mode===1) particles=[2,5,8,11].map((x,i)=>cleanP(x,0.28+i*0.16,0.15-i*.05,String(i+1)));
-    if(mode===2) particles=[cleanP(1,.55,0,'ÚNICA')];
-    if(mode===3) particles=[4,8,14,11].map((x,i)=>cleanP(x,0.27+i*.17,0,i>=0?'ABCD'[i]:''));
-    if(mode===4) particles=[cleanP(2,.55,1,'EJEMPLO')];
-    if(mode===5) {
-      target=null;
-      particles=Array.from({length:13},(_,i)=>{
-        const x=0.06+rand()*.86,y=.09+rand()*.81;
-        const p=cleanP(x,y,0,String(i+1));p.vx=(rand()-.5)*.08;p.vy=(rand()-.5)*.08;return p;
-      });
-      const best=particles.reduce((a,b)=>cost2d(a)<cost2d(b)?a:b);
-      globalBest={x:best.x,y:best.y,cost:cost2d(best)};
-      history=[globalBest.cost];
-    }
-    if(mode===1||mode===3){
-      const best=bestParticle();globalBest={x:best.px,cost:cost1d(best.px)};
-    }
-    if(mode===2) globalBest={x:1,cost:cost1d(1)};
-    if(mode===4) globalBest={x:6,cost:1};
-    prev=particles.map(p=>({x:p.x,y:p.y}));
-    running=autoplay;
-    play.textContent=running?'⏸ PAUSAR':'▶ REPRODUCIR';
-    play.setAttribute('aria-pressed',String(running));
-    if(mode===1)setStatus('Ronda inicial · 4 partículas buscando el mínimo');
-    if(mode===2)setStatus('Visita 1/6 · x actual: 1 · pBest: 1');
-    if(mode===3)setStatus('Ronda inicial · A, B, C y D comparten el gBest');
-    if(mode===4)setStatus('Ejemplo distinto: x = 2, v = 1, pBest = 4, gBest = 6');
-    if(mode===5)setStatus('Iteración 0 · 13 partículas exploran un espacio 2D');
-    render(1);
+  const mode=Number(root.dataset.swarmMode),review=root.dataset.review==='true';
+  const canvas=document.getElementById('swarmCanvas'),ctx=canvas?.getContext('2d');
+  const controls=document.getElementById('experimentControls');
+  const status=document.getElementById('swarmStatus');
+  const readiness=document.getElementById('labReadiness');
+  const log=document.getElementById('experimentLog');
+  if(!ctx||!controls||!status||!readiness||!log)return;
+  const W=760,H=295;
+  const cyan='#86f0d2',mint='#99f4b8',pink='#fc87b3',gold='#ffd58a',dim='#a5b3be';
+  const colors=['#93e7cb','#f08caa','#ad9ef1','#ffd58a'];
+  let state={level:mode,events:[],ready:false,progress:''},busy=false,readySent=false,forceMask=7;
+  let lastSnapshot=[],motionStarted=0,frame=0;
+  const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+  const lineX=(x,min=0,max=17)=>68+(x-min)/(max-min)*620;
+  const txt=(value,x,y,color=dim,size=12,align='left')=>{
+    ctx.font=`${size}px ui-monospace,SFMono-Regular,Consolas,monospace`;
+    ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(String(value),x,y);ctx.textAlign='left';
+  };
+  function line(x1,y1,x2,y2,color='#405065',width=1,dash=[]){
+    ctx.save();ctx.beginPath();ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore();
   }
-  function step() {
-    iteration++;
-    prev=particles.map(p=>({x:p.x,y:p.y}));
-    if(mode===1||mode===3){
-      for(const p of particles){
-        const r1=rand(),r2=rand();
-        p.v=cap(0.48*p.v+1.25*r1*(p.px-p.x)+1.45*r2*(globalBest.x-p.x),-2.8,2.8);
-        p.x=cap(p.x+p.v,0.2,15.8);
-        if(cost1d(p.x)<cost1d(p.px))p.px=p.x;
-        p.trail.push({x:p.x,y:p.y});
-        if(p.trail.length>12)p.trail.shift();
-      }
-      const best=bestParticle();
-      if(cost1d(best.px)<globalBest.cost)globalBest={x:best.px,cost:cost1d(best.px)};
-      setStatus(`Iteración ${iteration} · gBest aproximado: ${fmt(globalBest.x)} · costo: ${globalBest.cost.toFixed(2)}`);
-      if(iteration>=14)finish('Fin de demostración · reinicia para observar otro recorrido');
-    }
-    if(mode===2){
-      const visits=[1,4,8,7,5,4];
-      if(iteration>=visits.length){finish('Fin del recorrido · el mejor lugar visitado queda guardado');return;}
-      const p=particles[0];p.x=visits[iteration];
-      if(cost1d(p.x)<cost1d(p.px))p.px=p.x;
-      p.trail.push({x:p.x,y:p.y});
-      globalBest={x:p.px,cost:cost1d(p.px)};
-      setStatus(`Visita ${iteration+1}/6 · x actual: ${p.x} · pBest: ${p.px} · costo mínimo: ${globalBest.cost}`);
-      if(iteration===visits.length-1)finish();
-    }
-    if(mode===4){
-      const p=particles[0];
-      if(iteration%2===1){
-        // Demostración con datos diferentes del ejercicio: 0.5(1)+(4-2)+(6-2)=6.5.
-        p.x=8.5;p.trail.push({x:p.x,y:p.y});
-        setStatus('Inercia 0.5 + memoria 2 + grupo 4 = v′ 6.5 → x′ 8.5');
-      }else{
-        p.x=2;p.trail=[{x:2,y:p.y}];
-        setStatus('Se reinicia el ejemplo: x = 2, pBest = 4, gBest = 6');
-      }
-    }
-    if(mode===5){
-      for(const p of particles){
-        const r1=rand(),r2=rand();
-        p.vx=cap(.52*p.vx+1.5*r1*(p.px-p.x)+1.45*r2*(globalBest.x-p.x),-.18,.18);
-        p.vy=cap(.52*p.vy+1.5*r1*(p.py-p.y)+1.45*r2*(globalBest.y-p.y),-.18,.18);
-        p.x=cap(p.x+p.vx,.02,.98);p.y=cap(p.y+p.vy,.02,.98);
-        if(cost2d(p)<cost2d({x:p.px,y:p.py})){p.px=p.x;p.py=p.y;}
-        p.trail.push({x:p.x,y:p.y});if(p.trail.length>14)p.trail.shift();
-        const candidate=cost2d({x:p.px,y:p.py});
-        if(candidate<globalBest.cost)globalBest={x:p.px,y:p.py,cost:candidate};
-      }
-      history.push(globalBest.cost);
-      setStatus(`Iteración ${iteration} · mejor costo gBest: ${globalBest.cost.toFixed(4)} · partículas cooperando`);
-      if(iteration>=18)finish('Fin de demostración · observa el grupo alrededor del mejor lugar');
-    }
+  function dot(x,y,r,color,halo=false){
+    ctx.save();if(halo){ctx.shadowColor=color;ctx.shadowBlur=16;}
+    ctx.beginPath();ctx.fillStyle=color;ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
   }
-  function finish(message) {
-    running=false;play.textContent='▶ REPETIR';play.setAttribute('aria-pressed','false');
-    if(message)setStatus(message);
-  }
-  function line(x,y,x2,y2,color='#344353',w=1) {
-    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=w;ctx.stroke();
-  }
-  function circle(x,y,r,color,glow=0) {
-    ctx.save();ctx.shadowBlur=glow;ctx.shadowColor=color;ctx.fillStyle=color;
-    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
-  }
-  function label(value,x,y,color='#b8adbd',size=12,align='left') {
-    ctx.fillStyle=color;ctx.font=`${size}px monospace`;ctx.textAlign=align;ctx.fillText(value,x,y);ctx.textAlign='left';
-  }
-  function arrow(x0,y0,x1,y1,color) {
-    line(x0,y0,x1,y1,color,2);
-    const a=Math.atan2(y1-y0,x1-x0);
-    line(x1,y1,x1-9*Math.cos(a-.5),y1-9*Math.sin(a-.5),color,2);
-    line(x1,y1,x1-9*Math.cos(a+.5),y1-9*Math.sin(a+.5),color,2);
-  }
-  function drawBase() {
+  function ring(x,y,r,color){ctx.save();ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();ctx.restore();}
+  function base(heading,subtitle){
     ctx.clearRect(0,0,W,H);
-    const grad=ctx.createLinearGradient(0,0,W,H);
-    grad.addColorStop(0,'#0c1820');grad.addColorStop(.55,'#141522');grad.addColorStop(1,'#1d1120');
-    ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
-    for(let x=26;x<W;x+=40)line(x,0,x,H,'#26314054');
-    for(let y=13;y<H;y+=34)line(0,y,W,y,'#26314054');
-    label('PARTICLE SWARM OPTIMIZATION // VISUALIZACIÓN',19,21,'#d4a0bb',11);
+    const g=ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,'#0b1a23');g.addColorStop(1,'#171224');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    for(let x=20;x<W;x+=40)line(x,0,x,H,'#34415837');
+    for(let y=23;y<H;y+=32)line(0,y,W,y,'#34415837');
+    txt(heading,22,25,cyan,12);txt(subtitle,22,45,dim,11);
   }
-  function draw1d(alpha) {
-    const y=161;
-    line(X0,y,X1,y,'#6d7688',2);
-    for(let n=0;n<=16;n+=2){const x=mapX(n);line(x,y-5,x,y+6,'#69758a');label(String(n),x,y+21,'#9eacb8',11,'center');}
-    const goal=mapX(target);
-    line(goal,59,goal,218,'#e6a35975',2);
-    label('MÍNIMO',goal,51,'#ffd28f',11,'center');
-    if(mode===4){
-      const p=particles[0],drawX=lerp(prev[0].x,p.x,alpha);
-      const best=mapX(4),glob=mapX(6);
-      line(best,75,best,170,'#7ce7bb82',2);label('pBest 4',best,66,'#7ce7bb',11,'center');
-      line(glob,75,glob,170,'#ffd481ad',2);label('gBest 6',glob,83,'#ffd481',11,'center');
-      arrow(mapX(2),123,mapX(drawX),123,'#ff90ba');
-      circle(mapX(drawX),161,11,'#8debd4',15);
-      label('x ACTUAL',mapX(drawX),194,'#d9f8f0',12,'center');
-      label('EJEMPLO: v′ = 0.5v + (pBest−x) + (gBest−x)',21,239,'#c4afc5',12);
-      return;
+  function axis(y,min=0,max=17){
+    line(68,y,688,y,'#718396',2);
+    for(let x=min;x<=max;x+=2){let px=lineX(x,min,max);line(px,y-5,px,y+6,'#667484');txt(x,px,y+22,dim,12,'center');}
+    txt('POSICIÓN x',688,y+39,dim,11,'right');
+  }
+  function arrow(x1,y,x2,color){
+    line(x1,y,x2,y,color,3);
+    if(Math.abs(x2-x1)<6)return;
+    const dir=x2>x1?1:-1;
+    line(x2,y,x2-10*dir,y-6,color,2);
+    line(x2,y,x2-10*dir,y+6,color,2);
+  }
+  function actionText(event){
+    if(mode===1)return `Sensor x=${event.position} → costo ${event.cost}`;
+    if(mode===2)return `Visita ${event.step}: x=${event.position} · costo ${event.cost} · pBest=${event.pBest}${event.improved?' (mejoró)':' (no cambia)'}`;
+    if(mode===3)return `Partícula ${event.letter}: ${event.from}→${event.to} · pBest=${event.pBest} · costo ${event.pBestCost}`;
+    if(mode===4)return `Fuerzas ${['','I','M','I+M','G','I+G','M+G','I+M+G'][event.mask]} · v′=${event.velocity} · x′=${event.position}`;
+    return `Ronda ${event.step}: gBest costo=${event.globalBestCost} · ${event.improved?'mejora':'sin mejora'} · estancamiento=${event.withoutImprovement}/2`;
+  }
+  function renderLog(){
+    log.replaceChildren();
+    if(!state.events.length){log.textContent='Todavía no hay datos. Usa los controles del laboratorio.';return;}
+    for(const e of state.events){
+      const entry=document.createElement('div');entry.className='log-entry';
+      entry.textContent=actionText(e);log.appendChild(entry);
     }
-    const bestX=mapX(globalBest.x);
-    line(bestX,91,bestX,211,'#ffcf8185',2);
-    ctx.strokeStyle='#ffcf81';ctx.lineWidth=2;ctx.beginPath();ctx.arc(bestX,161,15,0,Math.PI*2);ctx.stroke();
-    label(mode===2?'MEJOR RECUERDO / pBest':'gBest COMPARTIDO',bestX,84,'#ffd481',11,'center');
-    particles.forEach((p,i)=>{
-      const yPart=mode===2?134:108+((i%4)*12);
-      const current=mapX(lerp(prev[i].x,p.x,alpha));
-      for(let j=0;j<p.trail.length-1;j++){
-        const a=mapX(p.trail[j].x),b=mapX(p.trail[j+1].x);
-        line(a,yPart,b,yPart,colors[i%colors.length]+'5c',2);
+  }
+  function scanBtns(){
+    for(const x of [3,6,9,12]){
+      addButton(`◉ SENSOR x=${x}`,()=>act('scan',x),state.events.some(e=>e.position===x));
+    }
+  }
+  function addButton(label,fn,disabled=false){
+    const button=document.createElement('button');button.type='button';
+    button.className='lab-action';button.textContent=label;
+    button.disabled=busy||disabled||state.ready||review;
+    if(disabled)button.classList.add('lab-used');
+    button.addEventListener('click',fn);controls.appendChild(button);
+    return button;
+  }
+  function makeControls(){
+    controls.replaceChildren();
+    if(review){
+      const box=document.createElement('p');box.className='lab-review-label';box.textContent='Experimento finalizado · estas son las mediciones que registraste.';
+      controls.appendChild(box);return;
+    }
+    if(mode===1)scanBtns();
+    if(mode===2)addButton(`▶ AVANZAR VISITA (${state.events.length}/4)`,()=>act('step',null));
+    if(mode===3)for(const letter of ['A','B','C','D'])addButton(`▶ LANZAR ${letter}`,()=>act('launch',letter),state.events.some(e=>e.letter===letter));
+    if(mode===4){
+      const fields=document.createElement('div');fields.className='force-picker';
+      for(const [mask,name,subtitle] of [[1,'INERCIA','0.5 × v'],[2,'MEMORIA','pBest − x'],[4,'ENJAMBRE','gBest − x']]){
+        const item=document.createElement('label');item.className='force-switch';
+        const check=document.createElement('input');check.type='checkbox';check.dataset.mask=String(mask);check.checked=Boolean(forceMask&mask);check.disabled=busy||state.ready;
+        check.addEventListener('change',()=>{forceMask=check.checked?(forceMask|mask):(forceMask&~mask);});
+        const text=document.createElement('span');text.textContent=name+' · '+subtitle;
+        item.append(check,text);fields.appendChild(item);
       }
-      const pb=mapX(p.px);
-      ctx.save();ctx.beginPath();ctx.setLineDash([3,4]);ctx.strokeStyle='#83e9c1';ctx.lineWidth=1.5;
-      ctx.arc(pb,yPart,13,0,Math.PI*2);ctx.stroke();ctx.restore();
-      line(current,yPart+9,current,160,colors[i%colors.length]+'62');
-      circle(current,yPart,8,colors[i%colors.length],12);
-      label(mode===2?'x':p.name,current,yPart-15,'#f1e5ec',11,'center');
-    });
-    if(mode===2)label('El aro punteado conserva la mejor posición visitada.',20,241,'#b0a8b8',12);
-    else label('Las partículas usan memoria personal y la mejor solución compartida.',20,241,'#b0a8b8',12);
+      controls.appendChild(fields);
+      const last=state.events[state.events.length-1];
+      const run=addButton('▶ SIMULAR COMBINACIÓN',()=>{
+        const mask=Array.from(fields.querySelectorAll('input:checked')).reduce((sum,x)=>sum+Number(x.dataset.mask),0);
+        if(mask===0){status.textContent='Activa al menos una de las tres fuerzas.';return;}
+        if(state.events.some(e=>e.mask===mask)){status.textContent='Ya mediste esa combinación. Cambia al menos una fuerza.';return;}
+        act('test',mask);
+      });
+      run.classList.add('lab-run');
+      if(last&&!state.ready)status.textContent=`Última prueba: v′=${last.velocity}, x′=${last.position}. Compara otras fuerzas.`;
+    }
+    if(mode===5)addButton(`▶ EJECUTAR ITERACIÓN (${state.events.length}/5)`,()=>act('iteration',null));
   }
-  function draw2d(alpha) {
-    const goal=xy({x:.68,y:.43});
-    const glow=ctx.createRadialGradient(goal.x,goal.y,0,goal.x,goal.y,130);
-    glow.addColorStop(0,'#fbc77833');glow.addColorStop(1,'#fbc77800');
-    ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
-    circle(goal.x,goal.y,6,'#ffe3a0',18);
-    label('MÍNIMO',goal.x+12,goal.y-11,'#fbd28f',11);
-    const gp=xy(globalBest);
-    ctx.beginPath();ctx.arc(gp.x,gp.y,14,0,Math.PI*2);ctx.lineWidth=2;ctx.strokeStyle='#ff9a90';ctx.stroke();
-    label('gBest',gp.x+17,gp.y+7,'#ffb0aa',11);
-    particles.forEach((p,i)=>{
-      const c=colors[i%colors.length];
-      for(let j=1;j<p.trail.length;j++){
-        const a=xy(p.trail[j-1]),b=xy(p.trail[j]);
-        line(a.x,a.y,b.x,b.y,c+'5c',1.6);
+  function setState(next){
+    lastSnapshot=state.events.slice();
+    state=next;motionStarted=performance.now();
+    renderLog();makeControls();
+    readiness.textContent=state.ready?'✓ EXPERIMENTO COMPLETO · RESPONDE':'◷ '+state.progress;
+    readiness.classList.toggle('ready',state.ready);
+    if(state.ready&&!readySent&&!review){
+      readySent=true;
+      window.dispatchEvent(new Event('pso-lab-ready'));
+      status.textContent='Experimento completo. Analiza las mediciones y escribe tu respuesta.';
+    }else if(!state.ready){
+      status.textContent=state.events.length?`Medición ${state.events.length} registrada. ${state.progress}`:'Interactúa con el laboratorio para generar tus propios datos.';
+    }
+  }
+  async function act(action,value){
+    if(busy||state.ready||review)return;
+    busy=true;makeControls();status.textContent='Simulando y guardando la medición...';
+    try{
+      const response=await fetch('/api/experiment',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({level:mode,action,value}),
+      });
+      const data=await response.json();
+      if(!response.ok)throw Error(data.error||'No se pudo realizar la prueba.');
+      setState(data);
+    }catch(err){status.textContent='Error de laboratorio: '+err.message+' · vuelve a intentarlo.';}
+    finally{busy=false;makeControls();}
+  }
+  const pulse=()=>{const elapsed=performance.now()-motionStarted;return clamp(elapsed/650,0,1);};
+  const tween=(a,b)=>a+(b-a)*pulse();
+  function draw1(){
+    base('01 // RADAR DEL TERRENO OCULTO','Pulsa los cuatro sensores. Cada medición revela un costo.');
+    const y=203;axis(y,0,14);
+    const ee=state.events;
+    for(const x of [3,6,9,12]){
+      const xp=lineX(x,0,14);dot(xp,y,5,'#617181');
+      txt('?',xp,93,'#738b99',13,'center');
+    }
+    for(const e of ee){
+      const xp=lineX(e.position,0,14),height=18+(e.cost/25)*89;
+      line(xp,y-7,xp,y-height,'#7ce4b099',3);
+      dot(xp,y-height,8,cyan,true);
+      txt(`f=${e.cost}`,xp,y-height-19,'#fff4dd',14,'center');
+      txt(`x=${e.position}`,xp,y+42,cyan,12,'center');
+    }
+    if(ee.length){
+      const best=ee.reduce((a,b)=>a.cost<=b.cost?a:b),px=lineX(best.position,0,14);
+      ring(px,y-(18+best.cost/25*89),16,gold);
+      txt('MEJOR COSTO OBSERVADO: '+best.cost,23,279,gold,12);
+    }else txt('El terreno todavía no ha sido medido.',23,278,dim,12);
+  }
+  function draw2(){
+    base('02 // LA MEMORIA NO ES LA POSICIÓN ACTUAL','Avanza el recorrido y compara el punto actual con pBest.');
+    axis(199,0,14);
+    const ee=state.events;
+    if(!ee.length){txt('Pulsa AVANZAR para que la partícula descubra posiciones.',23,97,dim,13);return;}
+    const current=ee[ee.length-1];
+    for(let i=0;i<ee.length;i++){
+      const p=ee[i],px=lineX(p.position,0,14);
+      if(i){const prev=ee[i-1],fx=lineX(prev.position,0,14);
+        arrow(fx,129,px,i===ee.length-1?pink:'#647c8a');}
+      dot(px,129,5,'#778798');txt(String(p.step),px,106,dim,11,'center');
+    }
+    const xp=lineX(current.position,0,14),bp=lineX(current.pBest,0,14);
+    dot(tween(lineX(ee.length>1?ee[ee.length-2].position:current.position,0,14),xp),129,10,pink,true);
+    dot(bp,199,8,mint,true);ring(bp,199,17,mint);
+    txt(`ACTUAL: x=${current.position} · COSTO=${current.cost}`,23,80,pink,13);
+    txt(`MEMORIA: pBest = ${current.pBest} · COSTO=${current.pBestCost}`,23,276,mint,12);
+  }
+  function draw3(){
+    base('03 // UNA RED DE CUATRO EXPLORADORES','Lanza A, B, C y D. Compara sus mejores costos personales.');
+    const ee=state.events;
+    line(65,257,692,257,'#576978',2);
+    for(let x=0;x<=16;x+=2){const xp=lineX(x,0,17);line(xp,252,xp,261,'#677581');txt(x,xp,276,dim,11,'center');}
+    const labels=['A','B','C','D'];
+    for(let i=0;i<4;i++){
+      const letter=labels[i],y=91+i*41,e=ee.find(x=>x.letter===letter);
+      txt('PARTÍCULA '+letter,16,y+5,colors[i],11);
+      line(146,y,688,y,'#455468',1);
+      if(!e){txt('SIN LANZAR',300,y+5,'#8295a1',12);continue;}
+      const x0=lineX(e.from,0,17),x1=lineX(e.to,0,17),xNow=tween(x0,x1);
+      arrow(x0,y,xNow,colors[i]);dot(x0,y,5,'#63727f');dot(xNow,y,8,colors[i],true);
+      ring(lineX(e.pBest,0,17),y,13,mint);
+      txt('pBest costo '+e.pBestCost,686,y-10,mint,11,'right');
+    }
+    if(ee.length){
+      const champion=ee[ee.length-1].gBestParticle;
+      const winner=ee.find(e=>e.letter===champion);
+      if(winner){
+        const wy=91+labels.indexOf(champion)*41,wx=lineX(winner.pBest,0,17);
+        ring(wx,wy,20,gold);
+        txt('gBest',wx,wy-22,gold,11,'center');
       }
-      const pb=xy({x:p.px,y:p.py});
-      ctx.beginPath();ctx.strokeStyle='#8ae8c065';ctx.lineWidth=1;
-      ctx.arc(pb.x,pb.y,8,0,Math.PI*2);ctx.stroke();
-      const v=xy({x:lerp(prev[i].x,p.x,alpha),y:lerp(prev[i].y,p.y,alpha)});
-      circle(v.x,v.y,5.5,c,8);
-    });
-    label(`MEJOR COSTO: ${globalBest.cost.toFixed(4)}`,20,239,'#dbe5e1',12);
-    label(`ITERACIÓN ${iteration}`,W-18,239,'#ffd58b',12,'right');
+      txt('MEJOR COSTO ENTRE LANZADAS: '+Math.min(...ee.map(e=>e.pBestCost)),23,55,gold,11);
+    }
   }
-  function render(alpha) {drawBase();if(mode===5)draw2d(alpha);else draw1d(alpha);}
-  let lastFrame=0;
-  function animate(now) {
-    frame=requestAnimationFrame(animate);
-    if(now-lastFrame<35)return;
-    lastFrame=now;
-    if(running){
-      const interval=mode===4?2600:mode===2?1800:1150;
-      if(now-lastTick>interval){lastTick=now;step();}
-      render(cap((now-lastTick)/Math.min(interval*.62,700),0,1));
-    }else render(1);
+  function draw4(){
+    base('04 // VECTOR DE MOVIMIENTO','Activa/desactiva fuerzas: el salto cambia según su suma.');
+    const ee=state.events,current=ee[ee.length-1];
+    axis(208,0,12);
+    const from=lineX(3,0,12);dot(from,208,9,pink,true);txt('INICIO x=3',from,243,pink,12,'center');
+    if(!current){txt('Elige fuerzas y pulsa SIMULAR COMBINACIÓN.',22,91,dim,13);return;}
+    const to=lineX(current.position,0,12),now=tween(from,to);
+    line(from,208,now,208,cyan,4);dot(now,208,9,cyan,true);ring(to,208,18,gold);
+    txt(`INERCIA +${current.inertia} · MEMORIA +${current.memory} · ENJAMBRE +${current.social}`,22,89,'#efe0ed',13);
+    txt(`VELOCIDAD v′ = ${current.velocity}`,22,126,cyan,15);
+    txt(`POSICIÓN x′ = ${current.position}`,22,151,gold,15);
+    txt('PRUEBAS REGISTRADAS: '+ee.length,22,275,dim,11);
   }
-  play.addEventListener('click',()=>{
-    if(!running && ((mode===5&&iteration>=18)||(mode===1||mode===3)&&iteration>=14||(mode===2&&iteration>=6)))initialize(true);
-    else {running=!running;lastTick=performance.now();play.textContent=running?'⏸ PAUSAR':'▶ REPRODUCIR';play.setAttribute('aria-pressed',String(running));}
-  });
-  reset.addEventListener('click',()=>initialize(true));
-  const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-  initialize(!reducedMotion);
-  frame=requestAnimationFrame(animate);
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden){running=false;play.textContent='▶ REPRODUCIR';play.setAttribute('aria-pressed','false');}
-  });
-  window.addEventListener('pagehide',()=>cancelAnimationFrame(frame),{once:true});
+  function draw5(){
+    base('05 // CONVERGENCIA: BUSCAR SIN MEJORAR','Controla cinco rondas. gBest conserva el mejor costo histórico.');
+    const ee=state.events,last=ee[ee.length-1];
+    line(45,219,441,219,'#677581',2);
+    txt('ENJAMBRE SOBRE EL EJE x',42,73,dim,12);
+    for(let x=0;x<=18;x+=3){let xp=45+x/18*396;line(xp,215,xp,224,'#677581');txt(x,xp,242,dim,11,'center');}
+    if(last){
+      const prev=ee.length>1?ee[ee.length-2]:last;
+      for(let i=0;i<last.positions.length;i++){
+        const cx=45+tween(prev.positions[i],last.positions[i])/18*396,y=109+i*28;
+        dot(cx,y,8,colors[i],true);
+        txt(String.fromCharCode(65+i),cx-14,y+4,colors[i],12,'right');
+        line(cx,y+9,cx,219,colors[i]+'45');
+      }
+      const gx=45+last.globalBestX/18*396;
+      ring(gx,216,15,gold);txt('gBest '+last.globalBestCost,gx,266,gold,12,'center');
+    }else txt('PULSA EJECUTAR ITERACIÓN PARA MOVER EL ENJAMBRE',40,146,dim,12);
+    line(476,64,476,229,'#566779',1);line(476,229,736,229,'#566779',1);
+    txt('COSTO gBest',485,84,gold,12);
+    for(let v=0;v<=20;v+=5){const py=224-v/20*125;line(477,py,731,py,'#6c7a8633');txt(v,473,py+4,dim,10,'right');}
+    let previous=null;
+    for(const e of ee){
+      const point={x:487+e.step*43,y:224-e.globalBestCost/20*125};
+      if(previous)line(previous.x,previous.y,point.x,point.y,cyan,2);
+      dot(point.x,point.y,5,e.improved?mint:pink,true);
+      txt(e.step,point.x,246,dim,11,'center');previous=point;
+    }
+    if(last)txt(`SIN MEJORA CONSECUTIVA: ${last.withoutImprovement}/2`,487,276,last.withoutImprovement>=2?pink:mint,11);
+    else txt('ITERACIÓN 0 / 5',487,276,dim,11);
+  }
+  function draw(){
+    if(mode===1)draw1();else if(mode===2)draw2();else if(mode===3)draw3();else if(mode===4)draw4();else draw5();
+  }
+  function animate(){
+    draw();
+    if(pulse()<1)frame=requestAnimationFrame(animate);
+    else frame=0;
+  }
+  const oldSetState=setState;
+  setState=function(next){oldSetState(next);if(frame)cancelAnimationFrame(frame);frame=requestAnimationFrame(animate);};
+  const seed=document.getElementById('labReviewData');
+  if(review&&seed){
+    try{setState(JSON.parse(seed.textContent));}catch{status.textContent='No se pudo mostrar el registro del reto.';draw();}
+  }else{
+    draw();
+    fetch('/api/experiment/state',{cache:'no-store'})
+      .then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.error||'Error de sesión');return data;})
+      .then(setState)
+      .catch(err=>{status.textContent='Error al cargar el laboratorio: '+err.message+' · recarga el reto.';});
+  }
+  window.addEventListener('pagehide',()=>{if(frame)cancelAnimationFrame(frame);},{once:true});
 })();

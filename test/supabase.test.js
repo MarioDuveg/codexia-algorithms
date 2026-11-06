@@ -18,7 +18,8 @@ function makeClient(host) {
       body:payload===undefined?undefined:JSON.stringify(payload)});
     const setCookie=r.headers.get('set-cookie');
     if(setCookie)cookie=setCookie.split(';')[0];
-    return {status:r.status,body:await r.json()};
+    const text=await r.text();let body;try{body=JSON.parse(text);}catch{body=text;}
+    return {status:r.status,body};
   };
 }
 async function until(check,timeout=2400) {
@@ -61,21 +62,39 @@ test('El PSO publica SOLO taller_2, 0 a 100, conserva mejor intento; simula caí
   await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
   const host=`http://127.0.0.1:${server.address().port}`;
   const equipo5=makeClient(host),equipo6=makeClient(host),admin=makeClient(host);
-  const answers=['8','5','D','10','5'];
+  const answers=['9','6','D','7','5'];
+  const steps={
+    1:[['scan',3],['scan',6],['scan',9],['scan',12]],
+    2:Array.from({length:4},()=>['step',null]),
+    3:['A','B','C','D'].map(letter=>['launch',letter]),
+    4:[['test',1],['test',3],['test',7]],
+    5:Array.from({length:5},()=>['iteration',null]),
+  };
+  async function lab(client,level){
+    await client('/reto/'+level);
+    for(const [action,value] of steps[level]){
+      const response=await client('/api/experiment',{level,action,value});
+      assert.equal(response.status,200,JSON.stringify(response.body));
+    }
+  }
+
   try{
     const cfg=(await equipo5('/api/config')).body;
     assert.equal(cfg.supabaseEnabled,true);
     assert.equal(cfg.supabaseColumn,'taller_2');
     assert.equal((await equipo5('/api/start',{teamNumber:5})).status,201);
-    assert.equal((await equipo5('/api/answer',{level:1,answer:'8'})).body.score,20);
+    await lab(equipo5,1);
+    assert.equal((await equipo5('/api/answer',{level:1,answer:'9'})).body.score,20);
     await until(()=>calls.length>=1);
     assert.equal(rows.has(5),false); // la primera llamada falló, pero el puntaje sigue local
     const pending=(await equipo5('/api/state')).body;
     assert.equal(pending.supabase.error,true);
     assert.equal(pending.score,20);
-    assert.equal((await equipo5('/api/answer',{level:2,answer:'5'})).body.score,40);
+    await lab(equipo5,2);
+    assert.equal((await equipo5('/api/answer',{level:2,answer:'6'})).body.score,40);
     await until(()=>rows.get(5)?.taller_2===40);
     for(let i=3;i<=5;i++){
+      await lab(equipo5,i);
       assert.equal((await equipo5('/api/answer',{level:i,answer:answers[i-1]})).body.score,i*20);
     }
     await until(()=>rows.get(5)?.taller_2===100);
@@ -89,13 +108,15 @@ test('El PSO publica SOLO taller_2, 0 a 100, conserva mejor intento; simula caí
     assert.equal(published.error,false);
     const beforeLowerRetry=calls.length;
     assert.equal((await equipo5('/api/retry',{})).status,201);
+    await lab(equipo5,1);
     assert.equal((await equipo5('/api/answer',{level:1,answer:'0'})).body.advanced,false);
-    assert.equal((await equipo5('/api/answer',{level:1,answer:'8'})).body.points,16);
-    for(let i=2;i<=5;i++)await equipo5('/api/answer',{level:i,answer:answers[i-1]});
+    assert.equal((await equipo5('/api/answer',{level:1,answer:'9'})).body.points,16);
+    for(let i=2;i<=5;i++){await lab(equipo5,i);await equipo5('/api/answer',{level:i,answer:answers[i-1]});}
     await new Promise(r=>setTimeout(r,110));
     assert.equal(rows.get(5).taller_2,100);
     assert.equal(calls.length,beforeLowerRetry); // no se mandan notas inferiores
     assert.equal((await equipo6('/api/start',{teamNumber:6})).status,201);
+    await lab(equipo6,1);
     for(let i=0;i<3;i++)await equipo6('/api/answer',{level:1,answer:'-22'});
     await until(()=>rows.has(6)); // nota 0 también es válida
     assert.equal(rows.get(6).taller_2,0);

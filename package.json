@@ -1,8 +1,8 @@
 {
   "name": "algoritmos-pso-prepa",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
-  "description": "Cinco mini retos de Particle Swarm Optimization para preparatoria, máximo 100 puntos",
+  "description": "Cinco experimentos visuales de Particle Swarm Optimization para preparatoria, máximo 100 puntos",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",

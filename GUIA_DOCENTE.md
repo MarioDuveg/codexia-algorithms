@@ -1,40 +1,47 @@
-# Guía docente — ALGORITMOS / PSO
+# Guía docente — ALGORITMOS / PSO (versión experimental)
 
-**Nivel:** preparatoria. **Duración:** 15 minutos de competencia + 10 a 15 minutos de discusión. **Modalidad:** equipos 1–20, navegador web, sin calculadora avanzada.
+**Nivel:** preparatoria. **Modalidad:** equipos 1–20. **Competencia:** máximo 15 minutos, cinco laboratorios obligatorios y máximo 100 puntos. **Discusión final:** 10–15 minutos.
 
-## Antes de comenzar
+## ¿Qué cambió en esta versión?
 
-1. Ejecuta `npm start` y muestra la URL de red local a los participantes.
-2. Abre `/scores` en un proyector para mostrar la clasificación. Puede dejarse visible porque se actualiza cada 10 segundos.
-3. Explica que PSO representa soluciones candidatas como partículas. Cada una recuerda su mejor solución (`pBest`) y puede aprender de la mejor del enjambre (`gBest`).
-4. Anuncia las reglas: 100 puntos máximo; cada reto suma precisión (14/10/6 puntos según el intento) + rapidez (6 a 0 puntos según segundos transcurridos); tres errores significan 0 puntos; 15 minutos sin pausa. Primero cuentan los puntos, después el tiempo, después los intentos.
+Cada reto sigue el ciclo **experimenta → observa el registro visual → razona → responde**. Los experimentos no son videos decorativos: un estudiante debe activar sensores, avanzar partículas, lanzar competidores, cambiar fuerzas o ejecutar iteraciones; cada acción se valida y guarda en el servidor. El formulario de respuesta permanece bloqueado hasta realizar las acciones mínimas. Si se recarga la página, reaparecen las mediciones realizadas y el tiempo continúa.
 
-## Simulaciones que pueden observar los estudiantes
+Las trayectorias y funciones son **escenarios didácticos deterministas**: presentan componentes reales de PSO sin pretender implementar un optimizador estocástico de propósito general. El objetivo es comprender minimización, memoria personal, cooperación, velocidad y convergencia.
 
-En cada reto aparece un laboratorio de partículas en movimiento, con controles **Pausar** y **Reiniciar**. Los retos 1 y 3 muestran partículas individuales intercambiando la mejor solución; el 2 ilustra cómo cambia la memoria pBest; el 4 anima un salto explicado por velocidad y atracciones; el 5 utiliza una simulación bidimensional con rastros y evolución del costo. Son demostraciones educativas, no atajos para responder (algunas usan datos distintos). El tiempo del reto sigue corriendo mientras observan la animación.
+## Los cinco experimentos y sus soluciones (NO mostrar las respuestas a los estudiantes)
 
-**Fórmula exacta del puntaje:** `puntos = (14, 10 o 6 por acierto según intento) + max(0, 6 − floor(segundos_del_reto/20))`. Si hay tres errores, puntaje cero. Se mide el tiempo de la **pregunta activa**, desde su primera apertura (no desde el inicio de la competencia), en el servidor; se conserva al recargar. Un acierto en el primer intento a los 48 segundos da `14 + 4 = 18` puntos. Cinco aciertos rápidos en primer intento pueden lograr 100 puntos.
+| # | Experimento que hacen | Pregunta posterior | Solución razonada |
+|---|---|---|---|
+| 1. Radar del mínimo | Pulsan los cuatro sensores **x=3, 6, 9 y 12**. Se revelan costos para una función inicialmente desconocida. | ¿Cuál de los cuatro puntos tiene menor costo? | **9**. Los costos observados son 25, 4, 1 y 16; se minimiza el costo. |
+| 2. El recuerdo que no se borra | Avanzan **cuatro visitas** de una misma partícula (x=2, 6, 10, 8) mientras la pantalla registra el pBest. | ¿Qué posición recuerda tras cuatro visitas? | **6**. Los costos son 25, 1, 9 y 1. En un empate se conserva el primer pBest. |
+| 3. Carrera por el gBest | Lanzan **A, B, C y D**, observando su recorrido de dos posiciones y el costo del mejor resultado de cada una. | ¿Qué partícula encontró el mejor resultado global? | **D**. Con función (x−10)², sus posiciones 6→10 dan costo final 0; ninguna otra llega a 0. |
+| 4. Laboratorio de fuerzas | Activan o desactivan **inercia, memoria y social**; simulan **tres combinaciones distintas**, incluyendo todas las fuerzas activas. | ¿Cuál es la velocidad v′ con las tres fuerzas? | **7**. Inercia 1 + memoria 2 + influencia social 4 = 7. Posición x′=10, pero la respuesta pide **velocidad**. |
+| 5. Semáforo de convergencia | Ejecutan **cinco iteraciones** y observan las posiciones de cuatro partículas y la gráfica del costo global. | ¿En qué iteración se acumulan dos rondas seguidas sin mejora? | **5**. gBest: 16→9→1→1→1, por tanto no mejora en 4 y 5. |
 
-## Objetivos de aprendizaje
+En el cuarto reto se usa la versión controlada de la ecuación: `v′ = 0.5v + (pBest−x) + (gBest−x)`, con `x=3`, `v=2`, `pBest=5`, `gBest=7`. Los interruptores permiten anular términos para comparar efectos, no sustituyen una iteración estocástica de PSO.
 
-- Reto 1: una **función objetivo** mide qué tan buena es una solución; aquí se **minimiza** costo.
-- Reto 2: `pBest` conserva el mejor lugar que visitó una partícula, aunque se haya movido a otro lugar.
-- Reto 3: `gBest` resume el mejor resultado conocido por el enjambre.
-- Reto 4: la velocidad nueva combina inercia, atracción por `pBest` y atracción por `gBest`. Se usan coeficientes fijos como **simplificación didáctica**, no como modelo completo aleatorio.
-- Reto 5: un criterio de parada observa iteraciones sin mejora; dos rondas consecutivas sin mejora pueden indicar estancamiento, aunque no garantizan óptimo global.
+## Cómo se califica
 
-## Respuestas y justificación (solo docente)
+Cada reto vale **hasta 20 puntos**: si aciertan al primer intento ganan **14 puntos de precisión**; al segundo, **10**; al tercero, **6**. Se suma un bono de rapidez de **6 a 0 puntos**, disminuyendo un punto por cada 20 segundos desde la apertura del reto. El tiempo del experimento también cuenta. Después de tres errores, ese reto suma cero y se avanza.
 
-1. **8**. `f(8) = (8−7)² = 1`, menor que `f(2)=25`, `f(5)=4` y `f(11)=16`.
-2. **5**. Su costo 1 es menor que los otros valores del historial (16 y 9).
-3. **D**. Su costo 1 es menor que A=36, B=4, C=16.
-4. **10**. `v′=0.5×2 +(5−3)+(7−3)=1+2+4=7`, por lo que `x′=3+7=10`.
-5. **5**. Mejora hasta la ronda 3; no mejora en rondas 4 y 5 (dos consecutivas).
+- Cinco retos de máximo 20 = **100 puntos máximo**.
+- La puntuación se compara primero; después **menor tiempo total** y finalmente **menos intentos**.
+- El límite global es **15 minutos sin pausa**, controlados por el servidor.
+- El estudiante no puede enviar la respuesta sin completar el laboratorio: ni ocultando el formulario ni llamando directamente a `/api/answer`.
+- Si se recarga una página, el servidor recuerda el progreso de experimentación y el cronómetro no se reinicia.
 
-## Reflexión posterior
+## Preguntas para la discusión
 
-Pregunta al grupo: ¿por qué una partícula necesita tanto memoria propia como información del resto? ¿Por qué detenerse sin cambios durante dos rondas NO demuestra haber encontrado el mínimo global? ¿Qué ocurriría si las partículas se movieran demasiado rápido y se saltaran buenas posiciones?
+1. ¿Por qué en el primer reto el mejor lugar no es necesariamente el número más grande?
+2. ¿Qué diferencia hay entre la posición actual de una partícula y su pBest?
+3. ¿Por qué el gBest necesita comparar resultados de varias partículas?
+4. ¿Qué ocurre con el salto cuando apagamos la influencia del enjambre?
+5. ¿Puede un enjambre dejar de mejorar aunque todavía no haya hallado el óptimo global?
 
-## Gestión
+## Operación técnica
 
-El panel `/admin` requiere la clave impresa al arrancar el servidor o la variable `ADMIN_PASSWORD`. Desde allí puedes exportar CSV y reiniciar. Los intentos se guardan en `data/equipos.json` y el **mejor puntaje por equipo se envía a `scores.taller_2` en Supabase**. La aplicación reutiliza la función `registrar_taller` del SQL del Taller 1; si ya la instalaste correctamente, no es necesario ejecutar más SQL. El botón REINICIAR solo borra los intentos locales, **no borra las notas ya publicadas en Supabase**.
+`npm start` ejecuta la aplicación (Node.js 18+). URL de estudiantes `/`, ranking `/scores`, panel del docente `/admin`. Establece `ADMIN_PASSWORD` como variable de entorno en Render. La base local `data/equipos.json` guarda partidas, experimentos, intentos y cronómetros. **Render Free tiene sistema de archivos efímero**; un reinicio puede perder la partida en curso. Para una competencia formal utiliza almacenamiento persistente.
+
+El servidor sigue enviando **exclusivamente `taller_2`** mediante la función RPC compartida `registrar_taller` del SQL del Taller 1. **No requiere nuevo SQL** si esa función ya está instalada. Cada publicación conserva el máximo resultado del equipo. El reinicio en `/admin` no borra los puntajes enviados a Supabase. Las pruebas incluyen una simulación de esa integración; no hacen escrituras sobre tu base real.
+
+**Prevención de trampas:** mantén el repositorio privado si no quieres revelar las respuestas almacenadas en `app.js`. Como la RPC del Taller 1 usa permisos públicos para `anon`, la seguridad de esas calificaciones depende de la supervisión del evento, no de una autenticación individual de equipos.

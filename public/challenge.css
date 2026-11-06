@@ -85,3 +85,26 @@ button{cursor:pointer}button:disabled{opacity:.62;cursor:not-allowed}
 .score-live strong{color:#fff;font:800 clamp(14px,2vw,19px) 'Orbitron',sans-serif;font-variant-numeric:tabular-nums}
 .score-live>div:last-child{border-color:#7a4f69;background:#241924}.score-live>div:last-child strong{color:#f8adcf}
 @media(max-width:680px){.score-live{grid-template-columns:repeat(2,minmax(0,1fr))}.lab-heading h2{font-size:12px}.swarm-lab{padding:11px}.swarm-controls button{flex:1}#swarmStatus{flex-basis:100%}.swarm-legend{gap:8px;font-size:10px}}
+/* v4: el laboratorio forma parte del reto: acciones, mediciones, trazas y desbloqueo. */
+.lab-callout{margin:0;color:#d3b5c5;font:16px/1.4 'Rajdhani',sans-serif}
+.experiment-controls{display:flex;gap:9px;flex-wrap:wrap;padding:14px 0 4px;align-items:center}
+.experiment-controls .lab-action{font:700 11px/1.5 'Orbitron',sans-serif;border:1px solid #5c7280;background:#182b36;color:#e3faf2;padding:11px 13px;min-height:44px;flex:1 1 auto;transition:background .15s,border-color .15s}
+.experiment-controls .lab-action:hover:not(:disabled),.experiment-controls .lab-action:focus-visible{background:#294b59;border-color:#8bf2d4;outline-offset:2px}
+.experiment-controls .lab-action.lab-used{opacity:.55;border-color:#557f6d;background:#18352d}
+.experiment-controls .lab-action.lab-run{background:#453043;border-color:#bf6a98;flex:1 1 100%;}
+.lab-review-label{font:14px/1.5 'Rajdhani',sans-serif;color:#a8dfc9;margin:0}
+.experiment-bottom{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:14px 0 10px}
+#swarmStatus{flex:1;min-width:210px;color:#b3c3cf;font:13px/1.4 'Rajdhani',sans-serif}
+.lab-readiness{border:1px solid #644351;background:#2f1c2d;color:#f3c5dd;padding:9px 12px;font:700 9px/1.5 'Orbitron',sans-serif;letter-spacing:.2px}
+.lab-readiness.ready{border-color:#50856a;background:#18392d;color:#b4f5cb}
+.experiment-log{background:#09141b;border:1px solid #344b59;padding:13px 15px;max-height:214px;overflow:auto}
+.experiment-log>strong{display:block;font:700 10px 'Orbitron',sans-serif;letter-spacing:.8px;color:#c7d4e2;margin-bottom:11px}
+#experimentLog{font:13px/1.55 'Rajdhani',sans-serif;color:#adbdc8}
+.log-entry{padding:6px 0;color:#def7e9;border-top:1px solid #264046;font:600 14px/1.5 'Rajdhani',sans-serif}
+.lab-locked{margin:12px 0 21px;padding:13px 16px;border:1px solid #795061;background:#23141e;color:#f4c0d6;font:700 13px/1.5 'Rajdhani',sans-serif}
+.force-picker{display:flex;gap:9px;flex:1 1 100%;flex-wrap:wrap}
+.force-switch{display:flex;align-items:center;gap:10px;flex:1 1 158px;padding:10px 11px;margin:0!important;background:#0a1b22;border:1px solid #42616c;color:#d5e7e4;font:700 11px/1.5 'Rajdhani',sans-serif;cursor:pointer}
+.force-switch:has(input:checked){border-color:#72c6a8;background:#1a3e37}
+.force-switch input{flex:0 0 auto;min-width:16px;width:16px;height:16px;accent-color:#7ae5bd;margin:0;padding:0}
+.force-switch span{display:block}
+@media(max-width:660px){.experiment-controls .lab-action{flex:1 1 42%;font-size:10px}.lab-readiness{font-size:9px}.experiment-log{max-height:166px}}

@@ -1,5 +1,5 @@
 'use strict';
-const LEVEL_TITLES = ['Encuentra el tesoro','Memoria personal','Líder del enjambre','Siguiente movimiento','Detener el enjambre'];
+const LEVEL_TITLES = ['Radar del mínimo','El recuerdo que no se borra','Carrera por el gBest','Laboratorio de fuerzas','Semáforo de convergencia'];
 const $ = selector => document.querySelector(selector);
 let state=null, anchor=performance.now(), anchorElapsed=0, viewedLevel=null;
 let polling=false, expiryRequested=false, holdAdvance=false;

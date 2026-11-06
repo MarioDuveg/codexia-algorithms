@@ -138,22 +138,87 @@ const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_pub
 const SUPABASE_ENABLED = process.env.SUPABASE_DISABLED !== '1' && Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 const TALLER_2_RPC = '/rest/v1/rpc/registrar_taller'; // RPC compartido por talleres 1 a 4
 const LEVELS = [
-  { title: 'Encuentra el tesoro', topic: 'FUNCIÓN OBJETIVO', answer: '8',
-    hint: 'Calcula (x − 7)² para cada posición. El menor valor es la mejor solución.',
-    explanation: 'La partícula en x = 8 tiene f(8) = (8 − 7)² = 1; las otras producen valores mayores.' },
-  { title: 'La memoria de la partícula', topic: 'PBEST', answer: '5',
-    hint: 'El pBest es la mejor posición que ESTA partícula visitó, no necesariamente la posición actual.',
-    explanation: 'La posición x = 5 produjo costo 1, menor que 16 y 9. Por eso pBest = 5.' },
-  { title: 'El líder del enjambre', topic: 'GBEST', answer: 'D',
-    hint: 'Compara los costos de todas las partículas. En minimización gana el menor costo.',
-    explanation: 'D tiene costo 1, frente a 36, 4 y 16; por tanto D aporta gBest = 11.' },
-  { title: 'Calcula el movimiento', topic: 'VELOCIDAD', answer: '10',
-    hint: 'Primero v nueva = 0.5×2 + (5−3) + (7−3) = 7. Después suma v nueva a x actual.',
-    explanation: 'La velocidad nueva es 1 + 2 + 4 = 7. Por tanto, x nueva = 3 + 7 = 10.' },
-  { title: 'Detén el enjambre', topic: 'CONVERGENCIA', answer: '5',
-    hint: 'Cuenta las iteraciones consecutivas que no mejoran el costo. La 4 es la primera sin mejora.',
-    explanation: 'El costo baja a 2 en la iteración 3; en la 4 y la 5 no mejora. Se detiene en la 5.' },
+  { title: 'Radar del mínimo', topic: 'FUNCIÓN OBJETIVO', answer: '9',
+    hint: 'Escanea todos los puntos. En optimización buscamos el COSTO menor, no la coordenada mayor.',
+    explanation: 'Los escaneos dieron costos 25, 4, 1 y 16 para x = 3, 6, 9 y 12. El menor costo, 1, se encontró en x = 9.' },
+  { title: 'El recuerdo que no se borra', topic: 'PBEST', answer: '6',
+    hint: 'pBest guarda la primera posición que consiguió el costo mínimo. Si una visita empata, no sustituye el recuerdo.',
+    explanation: 'La partícula visitó x = 2, 6, 10 y 8; sus costos fueron 25, 1, 9 y 1. Conserva pBest = 6 porque fue la primera posición con costo 1.' },
+  { title: 'Carrera por el gBest', topic: 'GBEST', answer: 'D',
+    hint: 'Lanza las cuatro partículas. Compara el mejor costo personal logrado por cada una; ese es el candidato a gBest.',
+    explanation: 'La partícula D pasó de x = 6 a x = 10 y encontró costo 0, menor que los mejores costos de A, B y C.' },
+  { title: 'Laboratorio de fuerzas', topic: 'VELOCIDAD', answer: '7',
+    hint: 'Compara varias combinaciones, incluida la de las tres fuerzas. La pregunta pide VELOCIDAD v′, no posición x′.',
+    explanation: 'Con las tres fuerzas activas: inercia = 0.5×2 = 1; memoria = 5−3 = 2; social = 7−3 = 4. La velocidad nueva v′ = 7 y la posición final x′ = 10.' },
+  { title: 'Semáforo de convergencia', topic: 'CONVERGENCIA', answer: '5',
+    hint: 'Avanza una iteración a la vez. Cuenta CUÁNTAS rondas consecutivas no mejoran el mejor costo del grupo.',
+    explanation: 'El mejor costo global fue 16 → 9 → 1 → 1 → 1. Las rondas 4 y 5 no mejoraron; la regla exige detenerse en la iteración 5.' },
 ];
+// Las pruebas son parte del juego, se guardan en el servidor y desbloquean
+// la respuesta. Ninguna simulación independiente entrega puntos por sí sola.
+const SCAN_POSITIONS = [3, 6, 9, 12];
+const VISITS = [2, 6, 10, 8];
+const SWARM_RUNS = {A:[1,7], B:[8,13], C:[11,9], D:[6,10]};
+const CONVERGENCE_STEPS = [
+  [2,6,14,17], [4,7,13,15], [6,8,9,13], [7,8,11,12], [8,9,11,12],
+];
+function ensureLab(t) {
+  if (!t.experiment || t.experiment.level !== t.currentLevel || !Array.isArray(t.experiment.actions)) {
+    t.experiment = {level:t.currentLevel,actions:[]};
+  }
+  return t.experiment;
+}
+function makeLabEvents(level,actions) {
+  if(level===1)return actions.map(x=>({kind:'scan',position:x,cost:(x-8)**2}));
+  if(level===2){
+    let bestCost=Infinity,bestX=null;
+    return actions.map((_,i)=>{
+      const position=VISITS[i],cost=(position-7)**2,improved=cost<bestCost;
+      if(improved){bestCost=cost;bestX=position;}
+      return {kind:'step',step:i+1,position,cost,pBest:bestX,pBestCost:bestCost,improved};
+    });
+  }
+  if(level===3){
+    let gBestCost=Infinity,gBestParticle=null;
+    return actions.map(letter=>{
+      const [from,to]=SWARM_RUNS[letter],fromCost=(from-10)**2,toCost=(to-10)**2;
+      const pBestCost=Math.min(fromCost,toCost),pBest=toCost<fromCost?to:from;
+      if(pBestCost<gBestCost){gBestCost=pBestCost;gBestParticle=letter;}
+      return {kind:'launch',letter,from,to,fromCost,toCost,pBest,pBestCost,gBestParticle,gBestCost};
+    });
+  }
+  if(level===4)return actions.map(mask=>{
+    const inertia=mask&1?1:0,memory=mask&2?2:0,social=mask&4?4:0;
+    const velocity=inertia+memory+social;
+    return {kind:'test',mask,inertia,memory,social,velocity,position:3+velocity};
+  });
+  if(level===5){
+    let bestCost=Infinity,bestX=null,stale=0;
+    return actions.map((_,i)=>{
+      const positions=CONVERGENCE_STEPS[i],costs=positions.map(x=>(x-10)**2);
+      const min=Math.min(...costs),improved=min<bestCost;
+      if(improved){bestCost=min;bestX=positions[costs.indexOf(min)];stale=0;}
+      else stale++;
+      return {kind:'iteration',step:i+1,positions,globalBestX:bestX,globalBestCost:bestCost,improved,withoutImprovement:stale};
+    });
+  }
+  return [];
+}
+function labReady(level,actions){
+  if(level===4)return actions.length>=3&&actions.includes(7);
+  return actions.length >= (level===5?5:4);
+}
+function labProgressText(level,actions) {
+  const count=actions.length;
+  if(level===1)return `Escaneos: ${count}/4. Examina los cuatro puntos.`;
+  if(level===2)return `Visitas: ${count}/4. Completa el recorrido de la partícula.`;
+  if(level===3)return `Partículas lanzadas: ${count}/4. Lanza A, B, C y D.`;
+  if(level===4)return `Pruebas diferentes: ${count}/3. Incluye una simulación con las tres fuerzas activas.`;
+  return `Iteraciones: ${count}/5. Avanza hasta comprobar dos rondas sin mejora.`;
+}
+function labSnapshot(level,actions) {
+  return {level,events:makeLabEvents(level,actions),ready:labReady(level,actions),progress:labProgressText(level,actions)};
+}
 
 fs.mkdirSync(DATA_DIR, {recursive:true});
 const serverKey = fs.existsSync(KEY_FILE) ? fs.readFileSync(KEY_FILE,'utf8').trim() : crypto.randomBytes(32).toString('hex');
@@ -351,6 +416,33 @@ app.post('/api/retry',requireTeam,(req,res)=>{
   if(!endedAt(req.team))return res.status(409).json({error:'Solo se puede reintentar después de terminar o agotar el tiempo.'});
   createAttempt(req.team.teamNumber,req,res);res.status(201).json({ok:true});
 });
+app.get('/api/experiment/state',requireTeam,(req,res)=>{
+  const t=req.team;expireIfNeeded(t);
+  if(endedAt(t))return res.status(409).json({error:'La competencia ya finalizó.'});
+  if(t.levelStartedAt==null)return res.status(409).json({error:'Primero abre tu reto actual.'});
+  res.json(labSnapshot(t.currentLevel,ensureLab(t).actions));
+});
+app.post('/api/experiment',requireTeam,(req,res)=>{
+  const t=req.team;expireIfNeeded(t);
+  if(endedAt(t))return res.status(409).json({error:'La competencia ya finalizó.'});
+  const level=req.body?.level,action=req.body?.action,value=req.body?.value;
+  if(!Number.isInteger(level)||level!==t.currentLevel||t.levelStartedAt==null)
+    return res.status(409).json({error:'El laboratorio de este reto no está activo.'});
+  const lab=ensureLab(t),actions=lab.actions;
+  if(labReady(level,actions))return res.json(labSnapshot(level,actions));
+  let next;
+  if(level===1&&action==='scan'&&Number.isInteger(value)&&SCAN_POSITIONS.includes(value))next=value;
+  else if(level===2&&action==='step'&&value===null&&actions.length<VISITS.length)next=actions.length+1;
+  else if(level===3&&action==='launch'&&typeof value==='string'&&Object.hasOwn(SWARM_RUNS,value))next=value;
+  else if(level===4&&action==='test'&&Number.isInteger(value)&&value>=1&&value<=7)next=value;
+  else if(level===5&&action==='iteration'&&value===null&&actions.length<CONVERGENCE_STEPS.length)next=actions.length+1;
+  else return res.status(400).json({error:'Acción del laboratorio inválida.'});
+  if((level===1||level===3||level===4)&&actions.includes(next))
+    return res.json(labSnapshot(level,actions));
+  if(actions.length>=8)return res.status(400).json({error:'Has alcanzado el límite de pruebas.'});
+  actions.push(next);save();
+  return res.json(labSnapshot(level,actions));
+});
 app.post('/api/answer',requireTeam,(req,res)=>{
   const t=req.team;expireIfNeeded(t);
   if(t.expiredAt)return res.status(409).json({error:'Se agotaron los 15 minutos de la competencia.'});
@@ -360,6 +452,8 @@ app.post('/api/answer',requireTeam,(req,res)=>{
   const answer=req.body?.answer;
   if(typeof answer!=='string'||!answer.trim()||answer.length>90)return res.status(400).json({error:'Escribe una respuesta válida.'});
   if(t.levelStartedAt==null)return res.status(409).json({error:'Abre este reto desde la plataforma antes de responder.'});
+  const experiment=ensureLab(t);
+  if(!labReady(level,experiment.actions))return res.status(409).json({error:'Primero completa la experimentación visual para desbloquear la respuesta.'});
   const checkedAt=Date.now(),durationMs=levelDuration(t,checkedAt);
   const correct=safeEqual(answer.trim().toUpperCase(),LEVELS[level-1].answer.toUpperCase());
   t.currentAttempts+=1;
@@ -368,8 +462,8 @@ app.post('/api/answer',requireTeam,(req,res)=>{
     const basePoints=correct?BASE_BY_ATTEMPT[tries-1]:0;
     const bonusPoints=correct?speedPoints(durationMs):0;
     const points=basePoints+bonusPoints;
-    t.results.push({level,correct,attempts:tries,points,basePoints,bonusPoints,durationMs,at:checkedAt});
-    t.currentLevel+=1;t.currentAttempts=0;t.levelStartedAt=null;
+    t.results.push({level,correct,attempts:tries,points,basePoints,bonusPoints,durationMs,at:checkedAt,experimentActions:[...experiment.actions]});
+    t.currentLevel+=1;t.currentAttempts=0;t.levelStartedAt=null;t.experiment=null;
     if(t.currentLevel===6)t.completedAt=checkedAt;
     save();
     void syncBestScore(t.teamNumber); // se envía el mejor score, sin bloquear la respuesta al alumno
@@ -387,32 +481,30 @@ app.post('/api/answer',requireTeam,(req,res)=>{
 function levelExtra(level) {
   switch(level){
     case 1:return {
-      title:'LOCALIZA EL MÍNIMO',text:'Las partículas exploran una línea numérica. El tesoro está definido por la función de costo f(x) = (x − 7)². Cuanto MENOR sea f(x), mejor es la posición.',
-      instruction:'¿Qué posición, entre las exploradas, tiene el costo más bajo? Escribe solo el número de x.',
-      visual:`<div class="equation">f(x) = (x − 7)² <small>MINIMIZAR</small></div>
-      <div class="numberline"><div class="track"></div><span class="dot" style="left:12%"><b>2</b></span><span class="dot" style="left:35%"><b>5</b></span><span class="target" style="left:53%"><b>OBJETIVO: 7</b></span><span class="dot" style="left:64%"><b>8</b></span><span class="dot" style="left:88%"><b>11</b></span></div>
-      <div class="result-pills"><span>x = 2</span><span>x = 5</span><span>x = 8</span><span>x = 11</span></div>`};
+      title:'RADAR DEL MÍNIMO',
+      text:'El paisaje tiene una función objetivo oculta. Activa cuatro sensores en distintos puntos y observa qué costo devuelve cada uno. En PSO, el menor costo indica la mejor solución.',
+      instruction:'Después de explorar los CUATRO puntos, ¿qué coordenada x tuvo el costo más bajo?',
+      visual:`<div class="equation">f(x) = ¿? <small>TERRENO OCULTO</small></div><p class="lab-callout">No hay una tabla precalculada. Escanea cada posición y compara las mediciones.</p>`};
     case 2:return {
-      title:'LA MEJOR MEMORIA',text:'Una partícula conserva su mejor posición personal (pBest), aunque después se mueva a una posición peor. Ahora su función es f(x) = (x − 6)².',
-      instruction:'Según el historial, ¿cuál es su pBest? Escribe solamente la posición x.',
-      visual:`<div class="equation">f(x) = (x − 6)² <small>MEMORIA PERSONAL</small></div>
-      <div class="data-grid"><div><small>VISITA 1</small><strong>x = 2</strong><span>f(x) = 16</span></div><div><small>VISITA 2</small><strong>x = 5</strong><span>f(x) = 1</span></div><div><small>AHORA</small><strong>x = 9</strong><span>f(x) = 9</span></div></div>`};
+      title:'LA MEMORIA DE UNA PARTÍCULA',
+      text:'Una partícula camina por cuatro posiciones. Su recuerdo pBest solo cambia cuando descubre un costo estrictamente menor. Si dos posiciones empatan, conserva la primera.',
+      instruction:'Al completar las CUATRO visitas, ¿qué coordenada x conserva la partícula como pBest?',
+      visual:`<div class="equation">f(x) = (x − 7)² <small>MEMORIA PERSONAL</small></div><p class="lab-callout">Avanza paso a paso. Compara la posición actual con el aro que representa pBest.</p>`};
     case 3:return {
-      title:'EL MEJOR DEL GRUPO',text:'En PSO, las partículas comparten la mejor posición global conocida (gBest). Todos usan la función f(x) = (x − 10)².',
-      instruction:'¿Qué partícula tiene la mejor posición del enjambre? Escribe A, B, C o D.',
-      visual:`<div class="equation">f(x) = (x − 10)² <small>MEJOR GLOBAL</small></div>
-      <div class="data-grid four"><div><small>PARTÍCULA A</small><strong>x = 4</strong><span>f(x) = 36</span></div><div><small>PARTÍCULA B</small><strong>x = 8</strong><span>f(x) = 4</span></div><div><small>PARTÍCULA C</small><strong>x = 14</strong><span>f(x) = 16</span></div><div><small>PARTÍCULA D</small><strong>x = 11</strong><span>f(x) = 1</span></div></div>`};
+      title:'LA CARRERA POR EL GBEST',
+      text:'Lanza A, B, C y D por separado. Cada una prueba dos posiciones y conserva su mejor resultado personal. El enjambre elige el costo más bajo de TODOS los recuerdos.',
+      instruction:'Tras lanzar las CUATRO partículas, ¿cuál encontró el gBest? Escribe A, B, C o D.',
+      visual:`<div class="equation">f(x) = (x − 10)² <small>COOPERACIÓN</small></div><p class="lab-callout">Cada lanzamiento revela una trayectoria distinta y el costo de su pBest.</p>`};
     case 4:return {
-      title:'EL SIGUIENTE SALTO',text:'La partícula combina inercia, su propia memoria y la mejor solución del grupo. Para esta ronda los coeficientes aleatorios ya están fijados.',
-      instruction:'Calcula primero la nueva velocidad v′ y luego x′ = x + v′. ¿Cuál es la NUEVA POSICIÓN x′?',
-      visual:`<div class="equation smaller">v′ = 0.5v + 1(pBest − x) + 1(gBest − x)</div>
-      <div class="data-grid four"><div><small>POSICIÓN ACTUAL</small><strong>x = 3</strong></div><div><small>VELOCIDAD</small><strong>v = 2</strong></div><div><small>MEJOR PERSONAL</small><strong>pBest = 5</strong></div><div><small>MEJOR GLOBAL</small><strong>gBest = 7</strong></div></div>
-      <div class="terminal-line dim">&gt; x′ = x + v′ &nbsp;&nbsp; // Calcula tu siguiente posición</div>`};
+      title:'CONSTRUYE EL SIGUIENTE SALTO',
+      text:'Puedes activar o desactivar las fuerzas de inercia, memoria y cooperación. Cambia la combinación y observa cómo se modifica el movimiento desde x = 3.',
+      instruction:'Experimenta con TRES combinaciones diferentes, incluida la de las tres fuerzas. Con TODAS activas, ¿cuál es la velocidad nueva v′?',
+      visual:`<div class="equation smaller">v′ = 0.5v + (pBest − x) + (gBest − x)</div><div class="data-grid four"><div><small>POSICIÓN</small><strong>x = 3</strong></div><div><small>VELOCIDAD</small><strong>v = 2</strong></div><div><small>MEMORIA</small><strong>pBest = 5</strong></div><div><small>GRUPO</small><strong>gBest = 7</strong></div></div>`};
     case 5:return {
-      title:'DECIDE CUÁNDO PARAR',text:'El enjambre registra su mejor costo gBest en cada iteración. La regla de parada es: detenerse cuando pasen DOS iteraciones consecutivas sin mejorar el mejor costo.',
-      instruction:'¿En qué iteración debe detenerse el algoritmo? Escribe el número de iteración.',
-      visual:`<div class="equation">Criterio: 2 rondas sin mejora <small>CONVERGENCIA</small></div>
-      <div class="iterations"><div><small>ITERACIÓN</small><small>COSTO gBest</small></div><div><b>01</b><strong>12</strong></div><div><b>02</b><strong>5</strong></div><div><b>03</b><strong>2</strong></div><div><b>04</b><strong>2</strong></div><div><b>05</b><strong>2</strong></div></div>`};
+      title:'DETECTOR DE CONVERGENCIA',
+      text:'Controla las iteraciones del enjambre. En cada ronda, las partículas exploran posiciones y el sistema conserva el mejor costo global encontrado hasta ese momento.',
+      instruction:'La regla es detenerse tras DOS rondas consecutivas SIN mejorar gBest. ¿En qué iteración ocurre?',
+      visual:`<div class="equation">2 rondas sin mejora <small>CRITERIO DE PARADA</small></div><p class="lab-callout">Avanza el enjambre una iteración a la vez. Observa la gráfica del mejor costo.</p>`};
     default:throw Error('Reto inexistente');
   }
 }
@@ -428,18 +520,22 @@ function challengeDocument(level,t) {
   <main class="challenge"><div class="eyebrow"><span class="live-led"></span> ALGORITMOS / OPTIMIZACIÓN <span class="challenge-no">RETO 0${level} / 05</span></div>
   <h1>${htmlEsc(details.title)}</h1><p class="story">${htmlEsc(details.text)}</p>
   <div class="screen"><div class="screen-top"><span class="dots"><i></i><i></i><i></i></span> PSO SIMULATOR / ${String(level).padStart(2,'0')} <span>● ACTIVO</span></div><div class="screen-body">${details.visual}</div></div>
-  <section class="swarm-lab" aria-label="Simulación interactiva del enjambre" data-swarm-mode="${level}">
-    <div class="lab-heading"><div><span class="lab-kicker">LAB // ENJAMBRE EN ACCIÓN</span><h2>OBSERVA CÓMO SE MUEVEN LAS PARTÍCULAS</h2></div><span class="lab-badge">SIMULACIÓN INTERACTIVA</span></div>
-    <p class="lab-intro">Demostración para comprender PSO. Puedes pausarla o reiniciarla; <strong>el tiempo de tu reto sigue contando</strong>. La simulación no modifica tus respuestas.</p>
-    <div class="swarm-canvas-wrap"><canvas id="swarmCanvas" width="760" height="255" role="img" aria-label="Animación de partículas, mejores posiciones personales y globales">Tu navegador no admite la simulación en canvas.</canvas></div>
-    <div class="swarm-controls"><button type="button" id="swarmToggle" aria-pressed="true">⏸ PAUSAR</button><button type="button" id="swarmReset">↺ REINICIAR</button><span id="swarmStatus" aria-live="polite">Preparando partículas...</span></div>
-    <div class="swarm-legend"><span><i class="legend-particle"></i> Partícula</span><span><i class="legend-personal"></i> pBest / memoria</span><span><i class="legend-global"></i> gBest / mejor global</span></div>
+  <section class="swarm-lab" aria-label="Experimento interactivo del enjambre" data-swarm-mode="${level}" data-review="${review?'true':'false'}">
+    <div class="lab-heading"><div><span class="lab-kicker">LAB // PRIMERO EXPERIMENTA</span><h2>${['','ESCANEA EL TERRENO','SIGUE UNA PARTÍCULA','LANZA EL ENJAMBRE','CAMBIA LAS FUERZAS','CONTROLA LAS ITERACIONES'][level]}</h2></div><span class="lab-badge">TU ACCIÓN CUENTA</span></div>
+    <p class="lab-intro">${['','Selecciona cada sensor y mide su costo real.','Pulsa avanzar para descubrir el siguiente paso y actualizar la memoria.','Pulsa cada letra para lanzar una trayectoria distinta.','Prueba combinaciones de fuerzas y compara los saltos.','Pulsa iterar y revisa cómo evoluciona gBest.'][level]} <strong>La respuesta se desbloquea al completar el experimento.</strong></p>
+    <div class="swarm-canvas-wrap"><canvas id="swarmCanvas" width="760" height="295" role="img" aria-label="Gráfica del experimento; resultados también disponibles en el registro de mediciones">Tu navegador no admite la gráfica; consulta el registro de mediciones inferior.</canvas></div>
+    <div class="experiment-controls" id="experimentControls"></div>
+    <div class="experiment-bottom"><div id="swarmStatus" role="status" aria-live="polite">Preparando laboratorio...</div><div id="labReadiness" class="lab-readiness">EXPERIMENTA PARA DESBLOQUEAR</div></div>
+    <div class="experiment-log"><strong>REGISTRO DE MEDICIONES</strong><div id="experimentLog" aria-live="polite">Sin mediciones todavía.</div></div>
+    <div class="swarm-legend"><span><i class="legend-particle"></i> Partícula / posición</span><span><i class="legend-personal"></i> pBest</span><span><i class="legend-global"></i> gBest</span></div>
   </section>
+  ${review ? `<script id="labReviewData" type="application/json">${JSON.stringify(labSnapshot(level,result?.experimentActions||[])).replace(/</g,'\\u003c')}</script>`:''}
   <div class="objective"><span class="objective-icon">⌁</span><div><strong>TU MISIÓN</strong><p>${htmlEsc(details.instruction)}</p></div></div>
   ${review ? `<div class="review-card"><strong>RETO CERRADO · ${result?.points||0}/20 PUNTOS</strong><p>${htmlEsc(meta.explanation)}</p><p>${result?.correct?`Desglose: ${result.basePoints??'—'} por precisión + ${result.bonusPoints??'—'} por rapidez · ${Math.ceil((result.durationMs||0)/1000)} s.`:'Sin puntos: tres intentos incorrectos.'}</p></div>`:
    `<div class="score-live"><div><span>TIEMPO EN ESTE RETO</span><strong id="levelClock">00:00</strong></div><div><span>PRECISIÓN (SI ACIERTAS)</span><strong id="accuracyValue">${BASE_BY_ATTEMPT[t.currentAttempts]} pts</strong></div><div><span>EXTRA POR RAPIDEZ</span><strong id="speedValue">+${speedPoints(levelDuration(t))} pts</strong></div><div><span>TOTAL DISPONIBLE AHORA</span><strong id="possibleValue">${pointsPreview(t.currentAttempts,levelDuration(t))}/20</strong></div></div>
    <div class="attempts" id="attemptInfo">INTENTOS RESTANTES: ${MAX_ATTEMPTS-t.currentAttempts} / 3 · CADA 20 S SE REDUCE EL BONO DE RAPIDEZ (HASTA 120 S)</div>
-  <form id="answerForm" autocomplete="off"><label for="answer">TU RESPUESTA</label>
+  <p class="lab-locked" id="labLocked">Completa las acciones del laboratorio para habilitar la respuesta. El cronómetro sigue avanzando.</p>
+  <form id="answerForm" autocomplete="off" hidden><label for="answer">TU RESPUESTA</label>
     <div class="form-row"><input id="answer" name="answer" type="text" spellcheck="false" maxlength="90" placeholder="Escribe tu respuesta" required aria-label="Respuesta del reto"><button id="submitBtn" type="submit">VALIDAR <span>↗</span></button></div>
     <p id="feedback" class="feedback" role="status" aria-live="polite"></p></form>
   <div class="review-card" id="explanation" hidden><strong>RESULTADO DEL RETO</strong><p id="explanationText"></p><button class="next-button" type="button" id="nextBtn">${level===5?'VER RESULTADOS':'CONTINUAR AL SIGUIENTE RETO'} →</button></div>
@@ -451,6 +547,7 @@ function challengeDocument(level,t) {
     const feedback=document.getElementById('feedback'),info=document.getElementById('attemptInfo');
     const hint=document.getElementById('hintBtn'),hintText=document.getElementById('hintText');
     let usedAttempts=${t.currentAttempts};
+    window.addEventListener('pso-lab-ready',()=>{document.getElementById('answerForm').hidden=false;document.getElementById('labLocked').hidden=true;},{once:true});
     const initialElapsed=${levelDuration(t)}, initialClock=performance.now();
     const basePoints=[14,10,6],fmt=n=>String(n).padStart(2,'0');
     function tick(){
@@ -491,7 +588,8 @@ app.get('/reto/:level',(req,res)=>{
   expireIfNeeded(t);
   if(t.expiredAt)return res.status(410).send('Tiempo agotado. Consulta los resultados desde la portada.');
   if(level>t.currentLevel)return res.status(403).send('Este reto todavía está bloqueado.');
-  if(level===t.currentLevel&&!endedAt(t)&&t.levelStartedAt==null){t.levelStartedAt=Date.now();save();}
+  if(level===t.currentLevel&&!endedAt(t)&&t.levelStartedAt==null){t.levelStartedAt=Date.now();ensureLab(t);save();}
+  if(level===t.currentLevel&&!endedAt(t))ensureLab(t);
   res.setHeader('Cache-Control','no-store');res.setHeader('X-Frame-Options','SAMEORIGIN');
   res.send(challengeDocument(level,t));
 });

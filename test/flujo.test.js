@@ -24,7 +24,28 @@ function client(host){
     return {status:r.status,data};
   };
 }
-const valid=['8','5','D','10','5'];
+const valid=['9','6','D','7','5'];
+const actions={
+  1:[['scan',3],['scan',6],['scan',9],['scan',12]],
+  2:[['step',null],['step',null],['step',null],['step',null]],
+  3:[['launch','A'],['launch','B'],['launch','C'],['launch','D']],
+  4:[['test',1],['test',3],['test',7]],
+  5:[['iteration',null],['iteration',null],['iteration',null],['iteration',null],['iteration',null]],
+};
+async function runLab(api,level){
+  assert.equal((await api('/reto/'+level)).status,200);
+  assert.equal((await api('/api/answer',{level,answer:valid[level-1]})).status,409,'no se acepta responder sin experimentar');
+  for(let i=0;i<actions[level].length;i++){
+    const [action,value]=actions[level][i];
+    const r=await api('/api/experiment',{level,action,value});
+    assert.equal(r.status,200,JSON.stringify(r));
+    assert.equal(r.data.ready,i===actions[level].length-1,'solo al final se desbloquea');
+  }
+  const state=(await api('/api/experiment/state')).data;
+  assert.equal(state.ready,true);
+  assert.equal(state.events.length,actions[level].length);
+}
+
 test('Cinco retos PSO, 100 puntos, 3 intentos, cronómetro, ranking, reintentos y admin',async()=>{
   if (!server.listening) await new Promise(resolve=>server.once('listening',resolve));
   const host='http://127.0.0.1:'+server.address().port;
@@ -46,14 +67,16 @@ test('Cinco retos PSO, 100 puntos, 3 intentos, cronómetro, ranking, reintentos 
     assert.equal((await a('/api/start',{teamNumber:1})).status,201);
     assert.equal((await a('/api/state')).data.score,0);
     assert.equal((await a('/reto/5')).status,403);
+    assert.equal((await a('/api/experiment',{level:1,action:'scan',value:888})).status,409); // primero abrir reto
     const reto1=(await a('/reto/1')).data;
-    assert.match(reto1,/f\(x\) = \(x − 7\)²/);
+    assert.match(reto1,/TERRENO OCULTO/);
     assert.doesNotMatch(reto1,/answer: '8'/);
     assert.match(reto1,/swarmCanvas/);
     assert.match(reto1,/swarm.js/);
     assert.match(reto1,/PRECISIÓN/);
-    assert.match((await a('/public/swarm.js')).data,/function draw2d/);
+    assert.match((await a('/public/swarm.js')).data,/function draw5/);
     for(let i=1;i<=5;i++){
+      await runLab(a,i);
       const answer=await a('/api/answer',{level:i,answer:valid[i-1]});
       assert.equal(answer.status,200);
       assert.equal(answer.data.ok,true);
@@ -69,15 +92,17 @@ test('Cinco retos PSO, 100 puntos, 3 intentos, cronómetro, ranking, reintentos 
     assert.equal((await a('/api/retry',{})).status,201);
     assert.equal((await a('/api/state')).data.score,0);
     assert.equal((await b('/api/start',{teamNumber:2})).status,201);
+    await runLab(b,1);
     const bad1=await b('/api/answer',{level:1,answer:'99'});
     assert.equal(bad1.data.remaining,2);
     assert.equal(bad1.data.advanced,false);
     assert.equal((await b('/api/state')).data.currentAttempts,1);
-    const good2=await b('/api/answer',{level:1,answer:'8'});
+    const good2=await b('/api/answer',{level:1,answer:'9'});
     assert.equal(good2.data.points,16);
-    for(let i=2;i<=5;i++)assert.equal((await b('/api/answer',{level:i,answer:valid[i-1]})).data.points,20);
+    for(let i=2;i<=5;i++){await runLab(b,i);assert.equal((await b('/api/answer',{level:i,answer:valid[i-1]})).data.points,20);}
     assert.equal((await b('/api/state')).data.score,96);
     assert.equal((await c('/api/start',{teamNumber:3})).status,201);
+    await runLab(c,1);
     for(let i=0;i<3;i++){
       const res=await c('/api/answer',{level:1,answer:'-1'});
       assert.equal(res.data.ok,false);
@@ -86,10 +111,11 @@ test('Cinco retos PSO, 100 puntos, 3 intentos, cronómetro, ranking, reintentos 
     }
     assert.equal((await c('/api/state')).data.currentLevel,2);
     assert.equal((await c('/api/state')).data.results[0].points,0);
-    assert.equal((await c('/api/answer',{level:1,answer:'8'})).status,409);
+    assert.equal((await c('/api/answer',{level:1,answer:'9'})).status,409);
+    await runLab(c,2);
     assert.equal((await c('/api/answer',{level:2,answer:'0'})).data.remaining,2);
     assert.equal((await c('/api/answer',{level:2,answer:'0'})).data.remaining,1);
-    assert.equal((await c('/api/answer',{level:2,answer:'5'})).data.points,12);
+    assert.equal((await c('/api/answer',{level:2,answer:'6'})).data.points,12);
     assert.equal((await c('/api/state')).data.score,12);
     let leaderboard=(await d('/api/scores')).data.scores;
     assert.equal(leaderboard.find(t=>t.equipo===1).puntos,100); // conserva mejor de varios intentos
@@ -103,7 +129,8 @@ test('Cinco retos PSO, 100 puntos, 3 intentos, cronómetro, ranking, reintentos 
     const started4=(await e('/api/state')).data.serverNow;
     Date.now=()=>started4+45_000;
     await e('/reto/1'); // recarga; el tiempo debe mantenerse
-    const timed=await e('/api/answer',{level:1,answer:'8'});
+    await runLab(e,1);
+    const timed=await e('/api/answer',{level:1,answer:'9'});
     assert.equal(timed.data.points,18); // 14 de precisión + 4 de rapidez
     assert.equal(timed.data.basePoints,14);
     assert.equal(timed.data.bonusPoints,4);
@@ -124,7 +151,7 @@ test('Cinco retos PSO, 100 puntos, 3 intentos, cronómetro, ranking, reintentos 
     assert.equal(expired.expiredAt,start+900000);
     assert.equal(expired.elapsedMs,900000);
     assert.equal(expired.score,0);
-    assert.equal((await d('/api/answer',{level:1,answer:'8'})).status,409);
+    assert.equal((await d('/api/answer',{level:1,answer:'9'})).status,409);
     Date.now=originalNow;
     assert.equal((await admin('/api/admin/reset',{confirm:'No'})).status,400);
     assert.equal((await admin('/api/admin/reset',{confirm:'REINICIAR'})).status,200);

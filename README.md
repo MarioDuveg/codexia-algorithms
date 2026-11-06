@@ -1,6 +1,6 @@
-# ALGORITMOS — 5 mini retos de Particle Swarm Optimization
+# ALGORITMOS — 5 retos experimentales de Particle Swarm Optimization
 
-Aplicación web para preparatoria, basada en la estructura visual y técnica de CODEXIA. Sus retos y su ranking funcionan de forma independiente del CTF, pero **comparte Supabase para publicar la nota del Taller 2**. Incluye selección de equipo 1–20, 5 retos secuenciales, temporizador de servidor, puntuación de 0 a 100, clasificación en vivo, panel docente y exportación CSV. Funciona con **Node.js 18+ y sin instalar paquetes externos**.
+Aplicación web para preparatoria, basada en la estructura visual y técnica de CODEXIA. Sus retos y su ranking funcionan de forma independiente del CTF, pero **comparte Supabase para publicar la nota del Taller 2**. Incluye selección de equipo 1–20, 5 laboratorios visuales obligatorios con respuesta posterior, temporizador de servidor, puntuación de 0 a 100, clasificación en vivo, panel docente y exportación CSV. Funciona con **Node.js 18+ y sin instalar paquetes externos**.
 
 ## Supabase: comparte la función del Taller 1, sin SQL adicional
 
@@ -26,23 +26,29 @@ ADMIN_PASSWORD='UnaClaveSegura' PORT=3011 npm start
 
 - **5 retos, máximo 20 cada uno = 100 puntos máximo; la puntuación real depende de precisión y tiempo por pregunta.**
 - Cada reto admite **3 intentos**. La parte de precisión vale **14 puntos al primer intento, 10 al segundo o 6 al tercero**. La parte de rapidez añade **0–6 puntos**: +6 si se responde antes de 20 segundos, +5 entre 20–39 s, +4 entre 40–59 s, +3 entre 60–79 s, +2 entre 80–99 s, +1 entre 100–119 s, +0 desde los 120 segundos. Un reto contestado al primer intento puede sumar entre 14 y 20; al segundo entre 10 y 16; al tercero entre 6 y 12. Tres respuestas incorrectas → **0** y se avanza al siguiente reto.
-- El reloj de cada reto empieza al abrirlo por primera vez, lo controla el servidor y **no se reinicia al refrescar o cerrar la pestaña**. Las pistas y las animaciones interactivas de partículas no descuentan puntos directamente, pero consumen tiempo.
+- El reloj de cada reto empieza al abrirlo por primera vez, lo controla el servidor y **no se reinicia al refrescar o cerrar la pestaña**. Los experimentos son necesarios para responder y consumen tiempo real. No tienen puntos separados; cuentan precisión y rapidez al resolver la pregunta posterior.
 - **15 minutos** desde que el equipo inicia, medidos en el servidor, sin pausas. Cuando se acaba el tiempo, se bloquean las respuestas pendientes y se conservan los puntos logrados.
 - Clasificación: **más puntos → menor tiempo transcurrido → menos intentos**. Si todo coincide, comparten puesto.
 - Un equipo puede reintentarlo tras terminar o agotar el tiempo. El ranking conserva su mejor participación. Se permite competir desde varios navegadores con el mismo equipo, pero solo su mejor intento se muestra. **Mientras una partida siga en curso, su posición es provisional.**
 - Los resultados se guardan de forma persistente en `data/equipos.json`. Para una competencia formal, mantén el equipo anfitrión encendido y haz copia del archivo; el almacenamiento debe ser persistente si usas hosting.
 
-## Los mini retos
+## Los cinco mini retos experimentales
 
-| # | Nombre | Concepto | Solución que verifica el servidor |
+En lugar de responder una pregunta estática junto a una animación decorativa, el equipo **genera sus propios datos** interactuando con el laboratorio. La respuesta se desbloquea únicamente cuando el servidor confirma el experimento. No pueden saltárselo enviando una petición de respuesta directa.
+
+| # | Laboratorio que deben completar | Lo que deben deducir | Respuesta del docente |
 |---|---|---|---|
-| 1 | Encuentra el tesoro | Función objetivo \(f(x)=(x-7)^2\) | `8` |
-| 2 | La memoria de la partícula | Mejor personal `pBest` | `5` |
-| 3 | El líder del enjambre | Mejor global `gBest` | `D` |
-| 4 | Calcula el movimiento | Actualización simplificada de velocidad y posición | `10` |
-| 5 | Detén el enjambre | Convergencia y criterio de parada | `5` |
+| 1 | Escanear los cuatro sensores del terreno oculto | Entre x=3, 6, 9 y 12, ¿qué posición produjo el costo menor? | `9` |
+| 2 | Ejecutar cuatro pasos de una partícula y observar su memoria | ¿En qué x queda el pBest después de un empate? | `6` |
+| 3 | Lanzar las cuatro partículas A–D y comparar sus mejores costos | ¿Qué partícula aportó el gBest del enjambre? | `D` |
+| 4 | Encender/apagar fuerzas y comparar al menos tres combinaciones, incluida la completa | ¿Qué velocidad nueva produce la combinación de todas las fuerzas? | `7` |
+| 5 | Ejecutar cinco iteraciones y observar gráfica de costo global | ¿En qué ronda hay dos iteraciones consecutivas sin mejora? | `5` |
 
-**No compartas las soluciones anteriores con los alumnos antes de la actividad.** Las respuestas y su validación están en `app.js`; las páginas de reto solo muestran los datos necesarios.
+**No compartas la tabla anterior con los alumnos**: incluye las soluciones. La guía `GUIA_DOCENTE.md` explica el razonamiento y la progresión didáctica. Las trayectorias son simulaciones controladas, reproducibles y didácticas de conceptos de PSO (no un solucionador PSO estocástico general).
+
+### Qué se guarda del experimento
+
+`POST /api/experiment` valida y registra cada acción del equipo (sensores, pasos, lanzamientos, pruebas de fuerzas e iteraciones). `GET /api/experiment/state` reconstruye las mediciones tras un refresco. La API `/api/answer` comprueba por sí misma que se completó el experimento antes de permitir un intento. Las respuestas correctas se validan siempre en el servidor.
 
 ## Panel docente
 
@@ -52,11 +58,11 @@ En `/admin` puedes ver el ranking, puntos, retos completados, tiempos e intentos
 
 - `app.js`: rutas HTTP, retos, validación de respuestas, puntuación, ranking y persistencia.
 - `public/index.html`, `public/styles.css`, `public/main.js`: interfaz de juego.
-- `public/challenge.css`, `public/swarm.js`: gráficos y simulaciones interactivas animadas de cada reto (canvas 2D), con botones de pausa y reinicio.
+- `public/challenge.css`, `public/swarm.js`: gráficos interactivos (canvas 2D), controles de experimentación, registro de mediciones y desbloqueo de respuestas.
 - `public/resultados.html`, `public/scores.js`: clasificación pública.
 - `public/admin.html`, `public/admin.js`: panel docente.
 - `GUIA_DOCENTE.md`: recomendaciones para la clase.
-- `test/flujo.test.js`: pruebas automáticas integrales, ejecutables con `npm test`.
+- `test/flujo.test.js` y `test/supabase.test.js`: pruebas del flujo experimental, tiempo, intentos y sincronización simulada, ejecutables con `npm test`.
 
 ## Supabase — ALGORITMOS es TALLER 2
 
