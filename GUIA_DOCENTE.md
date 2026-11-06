@@ -7,7 +7,13 @@
 1. Ejecuta `npm start` y muestra la URL de red local a los participantes.
 2. Abre `/scores` en un proyector para mostrar la clasificación. Puede dejarse visible porque se actualiza cada 10 segundos.
 3. Explica que PSO representa soluciones candidatas como partículas. Cada una recuerda su mejor solución (`pBest`) y puede aprender de la mejor del enjambre (`gBest`).
-4. Anuncia las reglas: 100 puntos máximo; 20/15/10 puntos si aciertan en los intentos 1/2/3; tres errores significan 0 puntos; 15 minutos sin pausa. Primero cuentan los puntos, después el tiempo, después los intentos.
+4. Anuncia las reglas: 100 puntos máximo; cada reto suma precisión (14/10/6 puntos según el intento) + rapidez (6 a 0 puntos según segundos transcurridos); tres errores significan 0 puntos; 15 minutos sin pausa. Primero cuentan los puntos, después el tiempo, después los intentos.
+
+## Simulaciones que pueden observar los estudiantes
+
+En cada reto aparece un laboratorio de partículas en movimiento, con controles **Pausar** y **Reiniciar**. Los retos 1 y 3 muestran partículas individuales intercambiando la mejor solución; el 2 ilustra cómo cambia la memoria pBest; el 4 anima un salto explicado por velocidad y atracciones; el 5 utiliza una simulación bidimensional con rastros y evolución del costo. Son demostraciones educativas, no atajos para responder (algunas usan datos distintos). El tiempo del reto sigue corriendo mientras observan la animación.
+
+**Fórmula exacta del puntaje:** `puntos = (14, 10 o 6 por acierto según intento) + max(0, 6 − floor(segundos_del_reto/20))`. Si hay tres errores, puntaje cero. Se mide el tiempo de la **pregunta activa**, desde su primera apertura (no desde el inicio de la competencia), en el servidor; se conserva al recargar. Un acierto en el primer intento a los 48 segundos da `14 + 4 = 18` puntos. Cinco aciertos rápidos en primer intento pueden lograr 100 puntos.
 
 ## Objetivos de aprendizaje
 

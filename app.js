@@ -122,7 +122,14 @@ const COOKIE_ADMIN = 'algoritmos_docente';
 const MAX_TEAM_NUMBER = 20;
 const MAX_MISSION_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
-const POINTS_BY_ATTEMPT = [20, 15, 10];
+// Cada reto: precisión (14/10/6 según el intento) + rapidez (0..6).
+// El cronómetro del reto empieza al abrirlo por primera vez; recargar NO lo reinicia.
+const BASE_BY_ATTEMPT = [14, 10, 6];
+const SPEED_MAX = 6;
+const SPEED_STEP_MS = 20_000;
+function speedPoints(ms) {return Math.max(0,SPEED_MAX-Math.floor(Math.max(0,ms)/SPEED_STEP_MS));}
+function pointsPreview(attemptIndex,ms) {return (BASE_BY_ATTEMPT[attemptIndex]||0)+speedPoints(ms);}
+function levelDuration(t,now=Date.now()) {return t.levelStartedAt==null?null:Math.max(0,now-t.levelStartedAt);}
 // Se reutilizan la URL y la clave PUBLICABLE del proyecto CODEXIA adjunto.
 // Nunca se necesita ni debe configurarse la clave service_role/secret.
 const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://zgpfcmvjmjfaphtudmis.supabase.co')
@@ -280,7 +287,7 @@ function expireIfNeeded(t,now=Date.now()) {
 function createAttempt(number,req,res) {
   const token=crypto.randomBytes(32).toString('hex');
   const t={id:crypto.randomUUID(),teamNumber:number,name:'Equipo '+number,tokenHash:hash(token),
-    startedAt:Date.now(),completedAt:null,expiredAt:null,currentLevel:1,currentAttempts:0,results:[]};
+    startedAt:Date.now(),completedAt:null,expiredAt:null,currentLevel:1,levelStartedAt:null,currentAttempts:0,results:[]};
   db.teams.push(t);save();setCookie(res,COOKIE_TEAM,token,30*24*3600,req);return t;
 }
 // Se conserva únicamente el MEJOR intento por equipo; empate: menos tiempo y luego menos intentos.
@@ -319,7 +326,7 @@ app.get('/',(req,res)=>res.sendFile(path.join(ROOT,'public','index.html')));
 app.get('/resultados',(req,res)=>res.sendFile(path.join(ROOT,'public','resultados.html')));
 app.get('/scores',(req,res)=>res.sendFile(path.join(ROOT,'public','resultados.html')));
 app.get('/admin',(req,res)=>res.sendFile(path.join(ROOT,'public','admin.html')));
-app.get('/api/config',(req,res)=>res.json({title:'ALGORITMOS',maxScore:100,maxAttempts:MAX_ATTEMPTS,maxDurationMs:MAX_MISSION_MS,teams:MAX_TEAM_NUMBER,supabaseEnabled:SUPABASE_ENABLED,supabaseColumn:'taller_2'}));
+app.get('/api/config',(req,res)=>res.json({title:'ALGORITMOS',maxScore:100,maxAttempts:MAX_ATTEMPTS,maxDurationMs:MAX_MISSION_MS,teams:MAX_TEAM_NUMBER,baseByAttempt:BASE_BY_ATTEMPT,speedMax:SPEED_MAX,speedStepMs:SPEED_STEP_MS,supabaseEnabled:SUPABASE_ENABLED,supabaseColumn:'taller_2'}));
 app.get('/api/state',(req,res)=>{
   const t=teamFromReq(req);const now=Date.now();
   if(!t)return res.json({started:false,serverNow:now,maxDurationMs:MAX_MISSION_MS});
@@ -329,6 +336,7 @@ app.get('/api/state',(req,res)=>{
     completedAt:t.completedAt,expiredAt:t.expiredAt,ended:Boolean(endedAt(t)),
     elapsedMs:elapsed(t,now),remainingMs:MAX_MISSION_MS-elapsed(t,now),maxDurationMs:MAX_MISSION_MS,
     currentLevel:t.currentLevel,currentAttempts:t.currentAttempts,attemptsRemaining:MAX_ATTEMPTS-t.currentAttempts,
+    levelElapsedMs:levelDuration(t,now),currentPossiblePoints:t.levelStartedAt==null?20:pointsPreview(t.currentAttempts,levelDuration(t,now)),
     results:t.results,score:scoreForTeam(t),totalAttempts:attemptsForTeam(t),rank:row?.rank||null,
     supabase:supabaseState(t.teamNumber)});
 });
@@ -351,24 +359,30 @@ app.post('/api/answer',requireTeam,(req,res)=>{
   if(!Number.isInteger(level)||level!==t.currentLevel)return res.status(409).json({error:'Este reto no está activo.'});
   const answer=req.body?.answer;
   if(typeof answer!=='string'||!answer.trim()||answer.length>90)return res.status(400).json({error:'Escribe una respuesta válida.'});
+  if(t.levelStartedAt==null)return res.status(409).json({error:'Abre este reto desde la plataforma antes de responder.'});
+  const checkedAt=Date.now(),durationMs=levelDuration(t,checkedAt);
   const correct=safeEqual(answer.trim().toUpperCase(),LEVELS[level-1].answer.toUpperCase());
   t.currentAttempts+=1;
   const tries=t.currentAttempts;
   if(correct||tries===MAX_ATTEMPTS){
-    const points=correct?POINTS_BY_ATTEMPT[tries-1]:0;
-    t.results.push({level,correct,attempts:tries,points,at:Date.now()});
-    t.currentLevel+=1;t.currentAttempts=0;
-    if(t.currentLevel===6)t.completedAt=Date.now();
+    const basePoints=correct?BASE_BY_ATTEMPT[tries-1]:0;
+    const bonusPoints=correct?speedPoints(durationMs):0;
+    const points=basePoints+bonusPoints;
+    t.results.push({level,correct,attempts:tries,points,basePoints,bonusPoints,durationMs,at:checkedAt});
+    t.currentLevel+=1;t.currentAttempts=0;t.levelStartedAt=null;
+    if(t.currentLevel===6)t.completedAt=checkedAt;
     save();
     void syncBestScore(t.teamNumber); // se envía el mejor score, sin bloquear la respuesta al alumno
     return res.json({ok:correct,advanced:true,completed:Boolean(t.completedAt),points,attemptsUsed:tries,
       remaining:0,nextLevel:t.completedAt?null:t.currentLevel,score:scoreForTeam(t),
+      basePoints,bonusPoints,durationMs,
       explanation:LEVELS[level-1].explanation,
-      message:correct?`¡Correcto! +${points} puntos.`:'Sin intentos disponibles. Este reto suma 0 puntos.'});
+      message:correct?`¡Correcto! +${points} puntos (${basePoints} por precisión + ${bonusPoints} por rapidez).`:'Sin intentos disponibles. Este reto suma 0 puntos.'});
   }
   save();
   res.json({ok:false,advanced:false,remaining:MAX_ATTEMPTS-tries,attemptsUsed:tries,
-    score:scoreForTeam(t),message:`No es correcto. Quedan ${MAX_ATTEMPTS-tries} intentos.`});
+    score:scoreForTeam(t),currentPossiblePoints:pointsPreview(tries,durationMs),
+    message:`No es correcto. Quedan ${MAX_ATTEMPTS-tries} intentos. El reloj del reto sigue corriendo.`});
 });
 function levelExtra(level) {
   switch(level){
@@ -414,19 +428,41 @@ function challengeDocument(level,t) {
   <main class="challenge"><div class="eyebrow"><span class="live-led"></span> ALGORITMOS / OPTIMIZACIÓN <span class="challenge-no">RETO 0${level} / 05</span></div>
   <h1>${htmlEsc(details.title)}</h1><p class="story">${htmlEsc(details.text)}</p>
   <div class="screen"><div class="screen-top"><span class="dots"><i></i><i></i><i></i></span> PSO SIMULATOR / ${String(level).padStart(2,'0')} <span>● ACTIVO</span></div><div class="screen-body">${details.visual}</div></div>
+  <section class="swarm-lab" aria-label="Simulación interactiva del enjambre" data-swarm-mode="${level}">
+    <div class="lab-heading"><div><span class="lab-kicker">LAB // ENJAMBRE EN ACCIÓN</span><h2>OBSERVA CÓMO SE MUEVEN LAS PARTÍCULAS</h2></div><span class="lab-badge">SIMULACIÓN INTERACTIVA</span></div>
+    <p class="lab-intro">Demostración para comprender PSO. Puedes pausarla o reiniciarla; <strong>el tiempo de tu reto sigue contando</strong>. La simulación no modifica tus respuestas.</p>
+    <div class="swarm-canvas-wrap"><canvas id="swarmCanvas" width="760" height="255" role="img" aria-label="Animación de partículas, mejores posiciones personales y globales">Tu navegador no admite la simulación en canvas.</canvas></div>
+    <div class="swarm-controls"><button type="button" id="swarmToggle" aria-pressed="true">⏸ PAUSAR</button><button type="button" id="swarmReset">↺ REINICIAR</button><span id="swarmStatus" aria-live="polite">Preparando partículas...</span></div>
+    <div class="swarm-legend"><span><i class="legend-particle"></i> Partícula</span><span><i class="legend-personal"></i> pBest / memoria</span><span><i class="legend-global"></i> gBest / mejor global</span></div>
+  </section>
   <div class="objective"><span class="objective-icon">⌁</span><div><strong>TU MISIÓN</strong><p>${htmlEsc(details.instruction)}</p></div></div>
-  ${review ? `<div class="review-card"><strong>RETO CERRADO · ${result?.points||0}/20 PUNTOS</strong><p>${htmlEsc(meta.explanation)}</p></div>`:
-   `<div class="attempts" id="attemptInfo">INTENTOS RESTANTES: ${MAX_ATTEMPTS-t.currentAttempts} / 3 · PUNTOS POSIBLES: ${POINTS_BY_ATTEMPT[t.currentAttempts]}</div>
+  ${review ? `<div class="review-card"><strong>RETO CERRADO · ${result?.points||0}/20 PUNTOS</strong><p>${htmlEsc(meta.explanation)}</p><p>${result?.correct?`Desglose: ${result.basePoints??'—'} por precisión + ${result.bonusPoints??'—'} por rapidez · ${Math.ceil((result.durationMs||0)/1000)} s.`:'Sin puntos: tres intentos incorrectos.'}</p></div>`:
+   `<div class="score-live"><div><span>TIEMPO EN ESTE RETO</span><strong id="levelClock">00:00</strong></div><div><span>PRECISIÓN (SI ACIERTAS)</span><strong id="accuracyValue">${BASE_BY_ATTEMPT[t.currentAttempts]} pts</strong></div><div><span>EXTRA POR RAPIDEZ</span><strong id="speedValue">+${speedPoints(levelDuration(t))} pts</strong></div><div><span>TOTAL DISPONIBLE AHORA</span><strong id="possibleValue">${pointsPreview(t.currentAttempts,levelDuration(t))}/20</strong></div></div>
+   <div class="attempts" id="attemptInfo">INTENTOS RESTANTES: ${MAX_ATTEMPTS-t.currentAttempts} / 3 · CADA 20 S SE REDUCE EL BONO DE RAPIDEZ (HASTA 120 S)</div>
   <form id="answerForm" autocomplete="off"><label for="answer">TU RESPUESTA</label>
     <div class="form-row"><input id="answer" name="answer" type="text" spellcheck="false" maxlength="90" placeholder="Escribe tu respuesta" required aria-label="Respuesta del reto"><button id="submitBtn" type="submit">VALIDAR <span>↗</span></button></div>
     <p id="feedback" class="feedback" role="status" aria-live="polite"></p></form>
   <div class="review-card" id="explanation" hidden><strong>RESULTADO DEL RETO</strong><p id="explanationText"></p><button class="next-button" type="button" id="nextBtn">${level===5?'VER RESULTADOS':'CONTINUAR AL SIGUIENTE RETO'} →</button></div>
   <div class="help-row"><button type="button" id="hintBtn">¿Necesitas una pista? <span>+</span></button><p id="hintText" hidden>${htmlEsc(meta.hint)}</p></div>`}
-  <div class="footer-meta">PARTICLE SWARM OPTIMIZATION · MÁXIMO 20 PUNTOS POR RETO · 15 MINUTOS TOTALES</div></main>
+  <div class="footer-meta">PUNTAJE = PRECISIÓN + RAPIDEZ · MÁXIMO 100 PUNTOS · 15 MINUTOS TOTALES</div></main>
+  <script src="/public/swarm.js" defer></script>
   ${!review ? `<script>(function(){
     const form=document.getElementById('answerForm'),input=document.getElementById('answer'),button=document.getElementById('submitBtn');
     const feedback=document.getElementById('feedback'),info=document.getElementById('attemptInfo');
     const hint=document.getElementById('hintBtn'),hintText=document.getElementById('hintText');
+    let usedAttempts=${t.currentAttempts};
+    const initialElapsed=${levelDuration(t)}, initialClock=performance.now();
+    const basePoints=[14,10,6],fmt=n=>String(n).padStart(2,'0');
+    function tick(){
+      const ms=Math.max(0,initialElapsed+(performance.now()-initialClock));
+      const secs=Math.floor(ms/1000);
+      const bonus=Math.max(0,6-Math.floor(ms/20000));
+      document.getElementById('levelClock').textContent=fmt(Math.floor(secs/60))+':'+fmt(secs%60);
+      document.getElementById('accuracyValue').textContent=basePoints[usedAttempts]+' pts';
+      document.getElementById('speedValue').textContent='+'+bonus+' pts';
+      document.getElementById('possibleValue').textContent=(basePoints[usedAttempts]+bonus)+'/20';
+    }
+    tick();const levelTicker=setInterval(tick,500);
     hint.addEventListener('click',()=>{hintText.hidden=!hintText.hidden;hint.querySelector('span').textContent=hintText.hidden?'+':'−';});
     document.getElementById('nextBtn').addEventListener('click',()=>window.parent.postMessage({type:'pso-continue'},location.origin));
     form.addEventListener('submit',async event=>{
@@ -436,12 +472,13 @@ function challengeDocument(level,t) {
         const result=await response.json();if(!response.ok)throw new Error(result.error||'Error al validar');
         feedback.textContent=result.message;feedback.className='feedback '+(result.ok?'good':'bad');
         if(result.advanced){
-          form.hidden=true;info.hidden=true;hint.parentElement.hidden=true;
+          form.hidden=true;info.hidden=true;hint.parentElement.hidden=true;clearInterval(levelTicker);
           const explanation=document.getElementById('explanation');explanation.hidden=false;
           document.getElementById('explanationText').textContent=result.explanation;
           window.parent.postMessage({type:'pso-progress'},location.origin);
         }else{
-          info.textContent='INTENTOS RESTANTES: '+result.remaining+' / 3 · PUNTOS POSIBLES: '+([20,15,10][result.attemptsUsed]||0);
+          usedAttempts=result.attemptsUsed;tick();
+          info.textContent='INTENTOS RESTANTES: '+result.remaining+' / 3 · EL BONO DE RAPIDEZ SIGUE DISMINUYENDO';
           button.disabled=false;input.select();
         }
       }catch(error){feedback.textContent=error.message;feedback.className='feedback bad';button.disabled=false;}
@@ -454,6 +491,7 @@ app.get('/reto/:level',(req,res)=>{
   expireIfNeeded(t);
   if(t.expiredAt)return res.status(410).send('Tiempo agotado. Consulta los resultados desde la portada.');
   if(level>t.currentLevel)return res.status(403).send('Este reto todavía está bloqueado.');
+  if(level===t.currentLevel&&!endedAt(t)&&t.levelStartedAt==null){t.levelStartedAt=Date.now();save();}
   res.setHeader('Cache-Control','no-store');res.setHeader('X-Frame-Options','SAMEORIGIN');
   res.send(challengeDocument(level,t));
 });

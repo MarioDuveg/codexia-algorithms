@@ -13,6 +13,7 @@ function makeClient(host) {
     const headers={};
     if(cookie)headers.cookie=cookie;
     if(payload!==undefined)headers['content-type']='application/json';
+    if(route==='/api/answer' && payload?.level)await fetch(host+'/reto/'+payload.level,{headers});
     const r=await fetch(host+route,{method:payload===undefined?'GET':'POST',headers,
       body:payload===undefined?undefined:JSON.stringify(payload)});
     const setCookie=r.headers.get('set-cookie');
@@ -89,7 +90,7 @@ test('El PSO publica SOLO taller_2, 0 a 100, conserva mejor intento; simula caí
     const beforeLowerRetry=calls.length;
     assert.equal((await equipo5('/api/retry',{})).status,201);
     assert.equal((await equipo5('/api/answer',{level:1,answer:'0'})).body.advanced,false);
-    assert.equal((await equipo5('/api/answer',{level:1,answer:'8'})).body.points,15);
+    assert.equal((await equipo5('/api/answer',{level:1,answer:'8'})).body.points,16);
     for(let i=2;i<=5;i++)await equipo5('/api/answer',{level:i,answer:answers[i-1]});
     await new Promise(r=>setTimeout(r,110));
     assert.equal(rows.get(5).taller_2,100);

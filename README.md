@@ -24,9 +24,9 @@ ADMIN_PASSWORD='UnaClaveSegura' PORT=3011 npm start
 
 ## Reglas de competencia
 
-- **5 retos × 20 puntos = 100 puntos máximo.**
-- Cada reto admite **3 intentos**: correcto al 1.º → **20 puntos**, al 2.º → **15 puntos**, al 3.º → **10 puntos**. Tres respuestas incorrectas → **0 puntos** y se avanza al siguiente reto.
-- Las pistas se pueden usar sin penalización adicional.
+- **5 retos, máximo 20 cada uno = 100 puntos máximo; la puntuación real depende de precisión y tiempo por pregunta.**
+- Cada reto admite **3 intentos**. La parte de precisión vale **14 puntos al primer intento, 10 al segundo o 6 al tercero**. La parte de rapidez añade **0–6 puntos**: +6 si se responde antes de 20 segundos, +5 entre 20–39 s, +4 entre 40–59 s, +3 entre 60–79 s, +2 entre 80–99 s, +1 entre 100–119 s, +0 desde los 120 segundos. Un reto contestado al primer intento puede sumar entre 14 y 20; al segundo entre 10 y 16; al tercero entre 6 y 12. Tres respuestas incorrectas → **0** y se avanza al siguiente reto.
+- El reloj de cada reto empieza al abrirlo por primera vez, lo controla el servidor y **no se reinicia al refrescar o cerrar la pestaña**. Las pistas y las animaciones interactivas de partículas no descuentan puntos directamente, pero consumen tiempo.
 - **15 minutos** desde que el equipo inicia, medidos en el servidor, sin pausas. Cuando se acaba el tiempo, se bloquean las respuestas pendientes y se conservan los puntos logrados.
 - Clasificación: **más puntos → menor tiempo transcurrido → menos intentos**. Si todo coincide, comparten puesto.
 - Un equipo puede reintentarlo tras terminar o agotar el tiempo. El ranking conserva su mejor participación. Se permite competir desde varios navegadores con el mismo equipo, pero solo su mejor intento se muestra. **Mientras una partida siga en curso, su posición es provisional.**
@@ -52,7 +52,7 @@ En `/admin` puedes ver el ranking, puntos, retos completados, tiempos e intentos
 
 - `app.js`: rutas HTTP, retos, validación de respuestas, puntuación, ranking y persistencia.
 - `public/index.html`, `public/styles.css`, `public/main.js`: interfaz de juego.
-- `public/challenge.css`: gráficos de cada reto.
+- `public/challenge.css`, `public/swarm.js`: gráficos y simulaciones interactivas animadas de cada reto (canvas 2D), con botones de pausa y reinicio.
 - `public/resultados.html`, `public/scores.js`: clasificación pública.
 - `public/admin.html`, `public/admin.js`: panel docente.
 - `GUIA_DOCENTE.md`: recomendaciones para la clase.
