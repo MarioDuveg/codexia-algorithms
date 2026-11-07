@@ -389,7 +389,8 @@ function limited(key) {
 const jsonType={'Content-Type':'application/json'};
 app.get('/',(req,res)=>res.sendFile(path.join(ROOT,'public','index.html')));
 app.get('/resultados',(req,res)=>res.sendFile(path.join(ROOT,'public','resultados.html')));
-app.get('/scores',(req,res)=>res.sendFile(path.join(ROOT,'public','resultados.html')));
+app.get('/ranking',(req,res)=>res.sendFile(path.join(ROOT,'public','ranking.html')));
+app.get('/scores',(req,res)=>res.sendFile(path.join(ROOT,'public','ranking.html')));
 app.get('/admin',(req,res)=>res.sendFile(path.join(ROOT,'public','admin.html')));
 app.get('/api/config',(req,res)=>res.json({title:'ALGORITMOS',maxScore:100,maxAttempts:MAX_ATTEMPTS,maxDurationMs:MAX_MISSION_MS,teams:MAX_TEAM_NUMBER,baseByAttempt:BASE_BY_ATTEMPT,speedMax:SPEED_MAX,speedStepMs:SPEED_STEP_MS,supabaseEnabled:SUPABASE_ENABLED,supabaseColumn:'taller_2'}));
 app.get('/api/state',(req,res)=>{
@@ -594,6 +595,25 @@ app.get('/reto/:level',(req,res)=>{
   res.send(challengeDocument(level,t));
 });
 app.get('/api/scores',(req,res)=>{res.json({scores:leaderboard(),maxScore:100,order:'puntos DESC, tiempo ASC, intentos ASC'});});
+// Marcador general compartido con CODEXIA: lectura sin modificar ningún taller.
+app.get('/api/general-scores',(req,res)=>{
+  if(!SUPABASE_ENABLED)return res.status(503).json({error:'La conexión a Supabase está deshabilitada.'});
+  (async()=>{
+    const url=SUPABASE_URL+'/rest/v1/scores?select=equipo,taller_1,taller_2,taller_3,taller_4,batalla_final,total&order=total.desc,equipo.asc';
+    const response=await fetch(url,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'},
+      signal:AbortSignal.timeout(8000)
+    });
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    const scores=await response.json();
+    if(!Array.isArray(scores))throw new Error('Respuesta de Supabase inválida.');
+    res.json({scores});
+  })().catch(error=>{
+    console.error('Lectura de marcador general:',error.message);
+    if(!res.headersSent)res.status(502).json({error:'No se pudieron consultar los resultados de Supabase.'});
+  });
+});
+
 app.get('/api/admin/session',(req,res)=>res.json({authenticated:adminFromReq(req)}));
 app.post('/api/admin/login',(req,res)=>{
   if(limited(req.ip||'unknown'))return res.status(429).json({error:'Demasiados intentos. Intenta más tarde.'});

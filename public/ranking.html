@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#050506">
+  <meta name="description" content="Clasificación en vivo de ALGORITMOS PSO. Máximo 100 puntos.">
+  <title>ALGORITMOS // Ranking del Taller 2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/public/styles.css"><script src="/public/scores.js" defer></script>
+</head><body class="app-screen scores-page">
+<div class="ambient-grid" aria-hidden="true"></div>
+<header class="topbar"><div class="brand"><span class="brand-emblem"><i></i></span><span class="brand-word">ALGO<span>R</span>ITMOS</span><span class="brand-divider"></span><span class="brand-sub">PARTICLE SWARM OPTIMIZATION</span></div>
+ <div class="top-right"><a href="/resultados" class="scores-nav-button">VER MARCADOR GENERAL →</a><span class="connection"><i></i> RANKING EN VIVO</span></div></header>
+<main class="scores-page-main"><section class="scores-content" id="scoresRoot" data-scores-root aria-label="Clasificación de equipos">
+  <div class="scores-intro"><div><p class="micro"><span class="micro-bar"></span> ALGORITMOS // TALLER 2</p><h2>RANKING <em>PSO.</em></h2><p>Máximo 100 puntos: 5 retos de 20. Gana la mayor puntuación; los empates se deciden por menor tiempo y luego por menos intentos.</p></div><div class="scores-live-indicator"><span></span> RANKING LOCAL / EN VIVO</div></div>
+  <div class="scores-filter-wrap"><p class="scores-section-label">SELECCIONA CLASIFICACIÓN</p><div class="scores-filters" id="scoresFilters" role="group" aria-label="Clasificación general o por reto"></div></div>
+  <div class="scores-current"><div><span class="scores-section-label">CLASIFICACIÓN ACTUAL</span><h3 id="scoresActivityLabel">PUNTUACIÓN TOTAL</h3><p id="scoresActivityDesc">Puntuación de los cinco retos.</p></div><div class="scores-mini-metrics"><div><strong id="scoresCount">—</strong><span>EQUIPOS REGISTRADOS</span></div><div><strong id="scoresHighest">—</strong><span>MEJOR PUNTAJE</span></div></div></div>
+  <div class="scores-podium" id="scoresPodium" aria-label="Primeros tres lugares"></div>
+  <div class="scores-table-wrap"><table class="scores-ranking-table" aria-label="Clasificación"><thead><tr><th>POS.</th><th>EQUIPO</th><th>PUNTAJE</th><th>TIEMPO</th><th>INTENTOS</th></tr></thead><tbody id="scoresRows"><tr><td colspan="5" class="scores-empty">Consultando resultados...</td></tr></tbody></table></div>
+  <div class="scores-footer"><span id="scoresStatus" role="status" aria-live="polite">CARGANDO...</span><div><button type="button" id="scoresRefreshBtn" class="scores-refresh">↻ ACTUALIZAR</button><span>SE ACTUALIZA CADA 10 S</span></div></div>
+</section></main></body></html>

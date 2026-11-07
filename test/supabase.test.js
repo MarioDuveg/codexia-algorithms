@@ -34,6 +34,13 @@ test('El PSO publica SOLO taller_2, 0 a 100, conserva mejor intento; simula caí
   const calls=[];
   let failNext=true;
   const supabase=http.createServer(async(req,res)=>{
+    if(req.method==='GET'&&req.url?.startsWith('/rest/v1/scores?')){
+      assert.match(req.url,/select=equipo,taller_1,taller_2,taller_3,taller_4,batalla_final,total/);
+      assert.match(req.url,/order=total.desc,equipo.asc/);
+      assert.equal(req.headers.apikey,'sb_publishable_prueba_no_real');
+      const scores=[...rows.values()].map(x=>({...x,total:x.taller_1+x.taller_2+x.taller_3+x.taller_4+x.batalla_final})).sort((a,b)=>b.total-a.total||a.equipo-b.equipo);
+      res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(scores));return;
+    }
     if(req.method!=='POST'||req.url!=='/rest/v1/rpc/registrar_taller'){
       res.writeHead(404);res.end('No encontrado');return;
     }
@@ -98,6 +105,10 @@ test('El PSO publica SOLO taller_2, 0 a 100, conserva mejor intento; simula caí
       assert.equal((await equipo5('/api/answer',{level:i,answer:answers[i-1]})).body.score,i*20);
     }
     await until(()=>rows.get(5)?.taller_2===100);
+    const general=(await equipo5('/api/general-scores'));
+    assert.equal(general.status,200);
+    assert.equal(general.body.scores.find(x=>x.equipo===5).taller_2,100);
+    assert.equal(general.body.scores.find(x=>x.equipo===5).total,295);
     assert.equal(rows.get(5).taller_1,35);
     assert.equal(rows.get(5).taller_3,40);
     assert.equal(rows.get(5).taller_4,50);

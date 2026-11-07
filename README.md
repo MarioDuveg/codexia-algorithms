@@ -1,6 +1,6 @@
 # ALGORITMOS — 5 retos experimentales de Particle Swarm Optimization
 
-Aplicación web para preparatoria, basada en la estructura visual y técnica de CODEXIA. Sus retos y su ranking funcionan de forma independiente del CTF, pero **comparte Supabase para publicar la nota del Taller 2**. Incluye selección de equipo 1–20, 5 laboratorios visuales obligatorios con respuesta posterior, temporizador de servidor, puntuación de 0 a 100, clasificación en vivo, panel docente y exportación CSV. Funciona con **Node.js 18+ y sin instalar paquetes externos**.
+Aplicación web para preparatoria, basada en la estructura visual y técnica de CODEXIA. Sus retos y su ranking funcionan de forma independiente del CTF, pero **comparte Supabase para publicar la nota del Taller 2**. Incluye selección de equipo 1–20, 5 laboratorios visuales obligatorios con respuesta posterior y video de introducción, temporizador de servidor, puntuación de 0 a 100, clasificación en vivo, panel docente y exportación CSV. Funciona con **Node.js 18+ y sin instalar paquetes externos**.
 
 ## Supabase: comparte la función del Taller 1, sin SQL adicional
 
@@ -15,7 +15,9 @@ npm start
 Abre `http://localhost:3011` en el equipo anfitrión o la dirección de red local que muestra la terminal en otros dispositivos. **No basta con abrir `index.html` directamente:** las soluciones, los intentos y el cronómetro los controla Node.js.
 
 - Estudiantes: `/`.
-- Ranking público: `/scores` o `/resultados`, también desde el botón de la portada.
+- Marcador general de CODEXIA: `/resultados` (misma tabla que Ciberseguridad, lectura de Supabase: Taller 1–4, Batalla final y TOTAL).
+- Ranking específico de Algoritmos: `/ranking` o `/scores` y el botón **RANKING** de la portada. Incluye general y cada mini reto.
+- Video introductorio: `https://youtu.be/M8N3masC6oo`, integrado en la portada como en CODEXIA. El video se detiene cuando se inicia una partida y hay un enlace de respaldo para abrirlo en YouTube.
 - Panel docente: `/admin`. La contraseña temporal aparece en la terminal, o puede fijarse con `ADMIN_PASSWORD`.
 
 ```bash
@@ -59,7 +61,8 @@ En `/admin` puedes ver el ranking, puntos, retos completados, tiempos e intentos
 - `app.js`: rutas HTTP, retos, validación de respuestas, puntuación, ranking y persistencia.
 - `public/index.html`, `public/styles.css`, `public/main.js`: interfaz de juego.
 - `public/challenge.css`, `public/swarm.js`: gráficos interactivos (canvas 2D), controles de experimentación, registro de mediciones y desbloqueo de respuestas.
-- `public/resultados.html`, `public/scores.js`: clasificación pública.
+- `public/resultados.html`, `public/resultados.js`: marcador general de los cinco componentes (Supabase, estilo Ciberseguridad).
+- `public/ranking.html`, `public/scores.js`: ranking local del Taller 2 con filtros por mini reto.
 - `public/admin.html`, `public/admin.js`: panel docente.
 - `GUIA_DOCENTE.md`: recomendaciones para la clase.
 - `test/flujo.test.js` y `test/supabase.test.js`: pruebas del flujo experimental, tiempo, intentos y sincronización simulada, ejecutables con `npm test`.
@@ -83,6 +86,13 @@ SUPABASE_PUBLISHABLE_KEY='sb_publishable_TU_CLAVE_PUBLICA' npm start
 
 **Importante:** reiniciar la competencia en `/admin` **solo borra los intentos locales**, no las notas ya publicadas en Supabase. La puntuación existente en `taller_2` nunca disminuye por envíos desde esta app. Para limpiar la columna en Supabase, es necesaria una acción administrativa expresa y distinta.
 
-El ranking de esta aplicación se mantiene local en el mismo servidor Node.js. La tabla global `scores` de CODEXIA recibe `taller_2` para sumar con los demás talleres; sus páginas de resultados pueden leerlo como siempre.
+El ranking específico del Taller 2 se mantiene local en Node.js, accesible en `/ranking`. El **marcador general** de `/resultados` consulta directamente la tabla global `scores` de Supabase: talleres 1–4, Batalla final y TOTAL. Es de solo lectura y no cambia ninguna nota.
 
 **Seguridad:** la clave publicable no es una clave secreta. La función RPC y las políticas públicas del SQL del Taller 1 permiten registrar o modificar notas a cualquier cliente con la clave publicable: es apropiado para una dinámica supervisada, **no sustituye una autenticación de equipos ni es antifraude**. No utilices esta política para una evaluación no supervisada.
+
+## Cambios visuales de la versión 5
+
+- Portada: se sustituyó la animación decorativa del enjambre por el **video solicitado** (`M8N3masC6oo`) con el mismo marco de transmisión que Ciberseguridad. Al entrar en la misión se descarga el iframe (`about:blank`) para evitar que siga sonando oculto. Si YouTube restringe la reproducción embebida, se puede usar el enlace externo.
+- Marcador final `/resultados`: copia la estructura de `codexia-cybersecurity-main-2` (encabezado, tabla de 8 columnas, tipografía y colores, actualización cada 10 segundos). Se destaca `TALLER 2`.
+- Ranking PSO `/ranking`: conserva los filtros y desempates que ya tenía la versión 4. No se cambia la regla de 100 puntos ni la sincronización de `taller_2`.
+- No se requiere ejecutar SQL adicional: ambas páginas consultan la tabla y la función del Taller 1 previamente instaladas.

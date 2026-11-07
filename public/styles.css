@@ -315,3 +315,12 @@ h1 em{color:var(--red);font-style:normal;text-shadow:0 0 24px #ff16383e}
 @media (prefers-reduced-motion:reduce){.swarm-particle{animation:none}}
 @media (max-width:800px){.brand-sub{display:none}.swarm-stage{height:205px}}
 @media (max-width:540px){.brand-word{font-size:16px;letter-spacing:1px}.scores-ranking-table{min-width:480px}.scores-time,.scores-tries{font-size:11px}.swarm-stage{height:180px}}
+
+/* ALGORITMOS v5: portada de video y marcador final basado en CODEXIA/Ciberseguridad */
+.video-external{display:inline-block;margin:1px 2px 2px;padding:4px 0;border-bottom:1px solid #ad3550;color:#f7b3c0;font:10px var(--head);letter-spacing:.35px}
+.video-external:hover{color:#fff;border-color:var(--red)}
+.results-links{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end}
+.score-table th.taller2{color:#ff899e;background:#32121e}
+.score-table td.taller2{color:#ffd1dc;font-weight:700;background:rgba(185,31,70,.075)}
+@media(max-width:800px){.results-links{width:100%;justify-content:flex-start}}
+@media(max-width:540px){.results-links{flex-direction:column}.results-links a{text-align:center}.video-terminal-heading{flex-wrap:wrap;font-size:8px}.video-terminal-note{font-size:8px}}

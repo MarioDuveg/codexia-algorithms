@@ -45,3 +45,9 @@ Cada reto vale **hasta 20 puntos**: si aciertan al primer intento ganan **14 pun
 El servidor sigue enviando **exclusivamente `taller_2`** mediante la función RPC compartida `registrar_taller` del SQL del Taller 1. **No requiere nuevo SQL** si esa función ya está instalada. Cada publicación conserva el máximo resultado del equipo. El reinicio en `/admin` no borra los puntajes enviados a Supabase. Las pruebas incluyen una simulación de esa integración; no hacen escrituras sobre tu base real.
 
 **Prevención de trampas:** mantén el repositorio privado si no quieres revelar las respuestas almacenadas en `app.js`. Como la RPC del Taller 1 usa permisos públicos para `anon`, la seguridad de esas calificaciones depende de la supervisión del evento, no de una autenticación individual de equipos.
+
+## Proyección y resultados (versión 5)
+
+En la portada aparece el video introductorio que el docente proporcionó: https://youtu.be/M8N3masC6oo. Puede reproducirse antes de iniciar la competencia; al seleccionar equipo y pulsar START, el iframe se detiene automáticamente.
+
+Para proyectar el marcador **general** de los talleres, abre `/resultados`. Lee Supabase y muestra Equipo, Taller 1–4, Batalla Final y Total; sigue la misma distribución de Ciberseguridad. Para la clasificación de los 5 retos de PSO, usa `/ranking` o el botón RANKING del juego.

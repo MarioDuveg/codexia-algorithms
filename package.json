@@ -1,6 +1,6 @@
 {
   "name": "algoritmos-pso-prepa",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "private": true,
   "description": "Cinco experimentos visuales de Particle Swarm Optimization para preparatoria, máximo 100 puntos",
   "main": "app.js",

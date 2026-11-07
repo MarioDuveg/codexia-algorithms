@@ -55,11 +55,18 @@ function updateTimer() {
   $('#remainingTime').textContent=String(Math.floor(remaining/60000)).padStart(2,'0')+':'+String(Math.floor(remaining%60000/1000)).padStart(2,'0')+' RESTANTES';
   if(!remaining&&!state.ended&&!expiryRequested){expiryRequested=true;refreshState();}
 }
+function setIntroVideoVisible(visible) {
+  // El mismo comportamiento de CODEXIA: al entrar al taller se detiene el video.
+  const video=$('#introVideo');
+  if(!video)return;
+  const desired=visible?video.dataset.embed:'about:blank';
+  if(video.getAttribute('src')!==desired)video.setAttribute('src',desired);
+}
 function renderState(data) {
   const oldLevel=state?.currentLevel;
   state=data;
-  if(!data.started){$('#workspace').hidden=true;$('#joinOverlay').hidden=false;return;}
-  $('#joinOverlay').hidden=true;$('#workspace').hidden=false;
+  if(!data.started){$('#workspace').hidden=true;$('#joinOverlay').hidden=false;setIntroVideoVisible(true);return;}
+  $('#joinOverlay').hidden=true;setIntroVideoVisible(false);$('#workspace').hidden=false;
   expiryRequested=false;
   $('#teamName').textContent=data.name;
   anchorElapsed=data.elapsedMs;anchor=performance.now();
